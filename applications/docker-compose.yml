@@ -62,7 +62,7 @@ services:
     ports:
       - "8081:8081"
     depends_on:
-      chayan-app-db:
+      postgres-db:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8081/actuator/health || exit 1"]
@@ -78,9 +78,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  chayan-app-db:
+  postgres-db:
     image: postgres:15
-    container_name: chayan-app-db
+    container_name: postgres-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
