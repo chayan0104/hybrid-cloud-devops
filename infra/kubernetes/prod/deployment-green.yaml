@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: microservice-green
+  namespace: enterprise-prod
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: microservice
+      track: green
+  template:
+    metadata:
+      labels:
+        app: microservice
+        track: green
+    spec:
+      containers:
+        - name: microservice
+          image: __MICROSERVICE_IMAGE__
+          ports:
+            - containerPort: 8081
+          env:
+            - name: APP_ENVIRONMENT
+              value: prod
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: host
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: port
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: db
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: password
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 5

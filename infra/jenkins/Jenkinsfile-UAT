@@ -1,0 +1,160 @@
+pipeline {
+  agent any
+
+  environment {
+    MICROSERVICE_IMAGE_REPO = 'your-registry.io/microservice'
+    FRONTEND_IMAGE_REPO = 'your-registry.io/frontend-angular'
+    UAT_TOMCAT_HOST = 'ubuntu@uat-tomcat.internal'
+    UAT_MAIN_APP_HOST = 'ubuntu@uat-tomcat.internal'
+    UAT_NAMESPACE = 'enterprise-uat'
+    VAULT_ADDR = 'https://vault.company.com:8200'
+    EMAIL_TO = 'uat-team@example.com'
+  }
+
+  parameters {
+    string(name: 'IMAGE_TAG', defaultValue: 'latest', description: 'Image tag to deploy for frontend and microservice')
+    booleanParam(name: 'ROLLBACK', defaultValue: false, description: 'Rollback deployment when validation fails')
+  }
+
+  stages {
+    stage('Load UAT Secrets from Vault') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'vault-approle', usernameVariable: 'ROLE_ID', passwordVariable: 'SECRET_ID')]) {
+          script {
+            env.VAULT_TOKEN = sh(
+              script: 'vault write -field=client_token auth/approle/login role_id=${ROLE_ID} secret_id=${SECRET_ID}',
+              returnStdout: true
+            ).trim()
+            def uatTomcatHost = sh(
+              script: 'VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=tomcat_host secret/uat/apps',
+              returnStdout: true
+            ).trim()
+            env.UAT_TOMCAT_HOST = 'ubuntu@' + uatTomcatHost
+            env.UAT_MAIN_APP_HOST = env.UAT_TOMCAT_HOST
+            env.UAT_TOMCAT_HTTP = uatTomcatHost
+          }
+        }
+      }
+    }
+
+    stage('Deploy Microservice UAT (YAML Only)') {
+      steps {
+        sh '''
+          PREVIOUS_IMAGE=$(kubectl get deployment microservice -n ${UAT_NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)
+          echo "${PREVIOUS_IMAGE}" > .uat_previous_microservice_image
+
+          PREVIOUS_FRONTEND_IMAGE=$(kubectl get deployment frontend -n ${UAT_NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)
+          echo "${PREVIOUS_FRONTEND_IMAGE}" > .uat_previous_frontend_image
+
+          DB_HOST=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=host secret/uat/db)
+          DB_PORT=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=port secret/uat/db)
+          DB_NAME=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=db secret/uat/db)
+          DB_USER=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=user secret/uat/db)
+          DB_PASSWORD=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=password secret/uat/db)
+
+          NEW_IMAGE="${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG}"
+          NEW_FRONTEND_IMAGE="${FRONTEND_IMAGE_REPO}:${IMAGE_TAG}"
+          sed "s|__MICROSERVICE_IMAGE__|${NEW_IMAGE}|g" infra/kubernetes/uat/deployment.yaml > infra/kubernetes/uat/deployment.rendered.yaml
+          sed "s|__FRONTEND_IMAGE__|${NEW_FRONTEND_IMAGE}|g" infra/kubernetes/uat/frontend-deployment.yaml > infra/kubernetes/uat/frontend-deployment.rendered.yaml
+
+          kubectl create namespace ${UAT_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic db-secrets \
+            --from-literal=host=${DB_HOST} \
+            --from-literal=port=${DB_PORT} \
+            --from-literal=db=${DB_NAME} \
+            --from-literal=user=${DB_USER} \
+            --from-literal=password=${DB_PASSWORD} \
+            -n ${UAT_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl apply -f infra/kubernetes/uat/namespace.yaml
+          kubectl apply -f infra/kubernetes/uat/service.yaml
+          kubectl apply -f infra/kubernetes/uat/frontend-service.yaml
+          kubectl apply -f infra/kubernetes/uat/hpa.yaml
+          kubectl apply -f infra/kubernetes/uat/deployment.rendered.yaml
+          kubectl apply -f infra/kubernetes/uat/frontend-deployment.rendered.yaml
+          kubectl rollout status deployment/microservice -n ${UAT_NAMESPACE}
+          kubectl rollout status deployment/frontend -n ${UAT_NAMESPACE}
+        '''
+      }
+    }
+
+    stage('Deploy Main App WAR UAT') {
+      steps {
+        sh '''
+          ssh ${UAT_MAIN_APP_HOST} "cp /opt/tomcat/webapps/main-app.war /opt/tomcat/webapps/main-app.war.bak || true"
+          scp applications/main-app/target/main-app.war ${UAT_MAIN_APP_HOST}:/opt/tomcat/webapps/
+          ssh ${UAT_MAIN_APP_HOST} "sudo systemctl restart tomcat"
+        '''
+      }
+    }
+
+    stage('Validate UAT') {
+      steps {
+        sh 'mkdir -p reports && kubectl get pods -n ${UAT_NAMESPACE} | tee reports/uat-pods.txt'
+        sh 'curl -fsS http://${UAT_TOMCAT_HTTP}:8080/main-app/health >/dev/null'
+        sh 'curl -fsS http://${UAT_TOMCAT_HTTP}:8080/main-app/api/microservice-status | tee reports/uat-main-app-microservice-bridge.json'
+      }
+    }
+  }
+
+  post {
+    always {
+      sh 'rm -f infra/kubernetes/uat/deployment.rendered.yaml || true'
+      sh 'rm -f infra/kubernetes/uat/frontend-deployment.rendered.yaml || true'
+      script {
+        sh """
+          mkdir -p reports
+          cat > reports/uat-summary.txt <<EOF
+Build: ${env.BUILD_NUMBER}
+Result: ${currentBuild.currentResult}
+Image Tag: ${params.IMAGE_TAG}
+Namespace: ${env.UAT_NAMESPACE}
+Tomcat Host: ${env.UAT_TOMCAT_HTTP}
+URL: ${env.BUILD_URL}
+EOF
+        """
+      }
+      archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
+      emailext(
+        to: "${EMAIL_TO}",
+        subject: "[UAT Deploy] ${currentBuild.currentResult} - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+        mimeType: 'text/html',
+        body: """
+          <p><b>Pipeline:</b> ${env.JOB_NAME}</p>
+          <p><b>Status:</b> ${currentBuild.currentResult}</p>
+          <p><b>Image Tag:</b> ${params.IMAGE_TAG}</p>
+          <p><b>Namespace:</b> ${env.UAT_NAMESPACE}</p>
+          <p><b>Reports:</b> UAT pod snapshot and bridge API output attached.</p>
+          <p><a href='${env.BUILD_URL}'>Open Build</a></p>
+        """,
+        attachmentsPattern: 'reports/**',
+        attachLog: true
+      )
+    }
+    failure {
+      script {
+        if (params.ROLLBACK) {
+          sh '''
+            PREVIOUS_IMAGE=$(cat .uat_previous_microservice_image 2>/dev/null || true)
+            if [ -n "${PREVIOUS_IMAGE}" ]; then
+              sed "s|__MICROSERVICE_IMAGE__|${PREVIOUS_IMAGE}|g" infra/kubernetes/uat/deployment.yaml > infra/kubernetes/uat/deployment.rollback.yaml
+              kubectl apply -f infra/kubernetes/uat/deployment.rollback.yaml
+              kubectl rollout status deployment/microservice -n ${UAT_NAMESPACE}
+            fi
+
+            PREVIOUS_FRONTEND_IMAGE=$(cat .uat_previous_frontend_image 2>/dev/null || true)
+            if [ -n "${PREVIOUS_FRONTEND_IMAGE}" ]; then
+              sed "s|__FRONTEND_IMAGE__|${PREVIOUS_FRONTEND_IMAGE}|g" infra/kubernetes/uat/frontend-deployment.yaml > infra/kubernetes/uat/frontend-deployment.rollback.yaml
+              kubectl apply -f infra/kubernetes/uat/frontend-deployment.rollback.yaml
+              kubectl rollout status deployment/frontend -n ${UAT_NAMESPACE}
+            fi
+            rm -f infra/kubernetes/uat/deployment.rollback.yaml || true
+            rm -f infra/kubernetes/uat/frontend-deployment.rollback.yaml || true
+          '''
+          sh 'ssh ${UAT_MAIN_APP_HOST} "cp /opt/tomcat/webapps/main-app.war.bak /opt/tomcat/webapps/main-app.war || true"'
+          sh 'ssh ${UAT_MAIN_APP_HOST} "sudo systemctl restart tomcat || true"'
+        }
+      }
+    }
+  }
+}

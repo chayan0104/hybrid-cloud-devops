@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: newrelic-infra
+  namespace: enterprise-prod
+spec:
+  selector:
+    matchLabels:
+      app: newrelic-infra
+  template:
+    metadata:
+      labels:
+        app: newrelic-infra
+    spec:
+      containers:
+        - name: newrelic-infra
+          image: newrelic/infrastructure:latest
+          env:
+            - name: NRIA_LICENSE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: newrelic-credentials
+                  key: license
+            - name: CLUSTER_NAME
+              value: enterprise-prod
+          securityContext:
+            privileged: true
+      tolerations:
+        - operator: Exists

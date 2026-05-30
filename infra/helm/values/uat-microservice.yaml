@@ -1,0 +1,8 @@
+replicaCount: 2
+
+image:
+  repository: your-registry.io/microservice
+  tag: uat-latest
+
+env:
+  APP_ENVIRONMENT: uat

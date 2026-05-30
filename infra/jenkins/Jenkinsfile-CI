@@ -1,0 +1,258 @@
+pipeline {
+  agent any
+
+  environment {
+    MICROSERVICE_IMAGE_REPO = "your-registry.io/microservice"
+    MAIN_APP_IMAGE_REPO = "your-registry.io/main-app"
+    FRONTEND_IMAGE_REPO = "your-registry.io/frontend-angular"
+    IMAGE_TAG = "${env.BUILD_NUMBER}"
+    JFROG_SERVER = ""
+    JFROG_DOCKER_REPO = ""
+    JFROG_GENERIC_REPO = ""
+    VAULT_ADDR = "https://vault.company.com:8200"
+    SONAR_HOST_URL = "https://sonarqube.company.com"
+    EMAIL_TO = "devops-team@example.com"
+  }
+
+  parameters {
+    booleanParam(name: 'RUN_DOCKER_SCANS', defaultValue: true, description: 'Run Trivy image and filesystem scans')
+    booleanParam(name: 'RUN_CODE_SCANS', defaultValue: true, description: 'Run SonarQube, dependency audits, IaC scans, and gitleaks')
+    booleanParam(name: 'PUSH_ARTIFACTS', defaultValue: true, description: 'Push images and WAR to JFrog')
+  }
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
+
+  stages {
+    stage('Validate Toolchain') {
+      steps {
+        sh 'java -version'
+        sh 'mvn -version'
+        sh 'docker version'
+        sh 'node --version'
+        sh 'npm --version'
+      }
+    }
+
+    stage('Load Shared Secrets from Vault') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'vault-approle', usernameVariable: 'ROLE_ID', passwordVariable: 'SECRET_ID')]) {
+          script {
+            env.VAULT_TOKEN = sh(
+              script: 'vault write -field=client_token auth/approle/login role_id=${ROLE_ID} secret_id=${SECRET_ID}',
+              returnStdout: true
+            ).trim()
+
+            env.JFROG_SERVER = sh(
+              script: 'VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=url secret/shared/jfrog',
+              returnStdout: true
+            ).trim()
+            env.JFROG_DOCKER_REPO = sh(
+              script: 'VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=docker_repo secret/shared/jfrog',
+              returnStdout: true
+            ).trim()
+            env.JFROG_GENERIC_REPO = sh(
+              script: 'VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=generic_repo secret/shared/jfrog',
+              returnStdout: true
+            ).trim()
+          }
+        }
+      }
+    }
+
+    stage('Build Frontend Angular Container') {
+      steps {
+        dir('applications/frontend-angular') {
+          sh 'npm install'
+          sh 'npm run build'
+          sh 'docker build -t ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} .'
+        }
+      }
+    }
+
+    stage('Build Main App') {
+      steps {
+        dir('applications/main-app') {
+          sh 'mvn -B clean package'
+          sh 'docker build -t ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} .'
+        }
+      }
+    }
+
+    stage('Build Microservice') {
+      steps {
+        dir('applications/microservice') {
+          sh 'mvn -B clean test package'
+          sh 'docker build -t ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} .'
+        }
+      }
+    }
+
+    stage('SonarQube Analysis') {
+      when {
+        expression { return params.RUN_CODE_SCANS }
+      }
+      steps {
+        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+          sh '''
+            set -euo pipefail
+            mkdir -p reports
+
+            cd applications/main-app
+            mvn -B sonar:sonar \
+              -Dsonar.projectKey=main-app \
+              -Dsonar.host.url=${SONAR_HOST_URL} \
+              -Dsonar.login=${SONAR_TOKEN} | tee ../../reports/sonar-main-app.txt
+
+            cd ../microservice
+            mvn -B sonar:sonar \
+              -Dsonar.projectKey=microservice \
+              -Dsonar.host.url=${SONAR_HOST_URL} \
+              -Dsonar.login=${SONAR_TOKEN} | tee ../../reports/sonar-microservice.txt
+          '''
+        }
+      }
+    }
+
+    stage('Dependency Audit') {
+      when {
+        expression { return params.RUN_CODE_SCANS }
+      }
+      steps {
+        sh '''
+          set -euo pipefail
+          mkdir -p reports
+
+          cd applications/frontend-angular
+          npm audit --audit-level=high | tee ../../reports/npm-audit-frontend.txt
+
+          cd ../main-app
+          mvn -B org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7 | tee ../../reports/dependency-check-main-app.txt
+
+          cd ../microservice
+          mvn -B org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7 | tee ../../reports/dependency-check-microservice.txt
+        '''
+      }
+    }
+
+    stage('IaC Security Scan (tfsec/checkov)') {
+      when {
+        expression { return params.RUN_CODE_SCANS }
+      }
+      steps {
+        sh '''
+          set -euo pipefail
+          mkdir -p reports
+
+          docker run --rm -v "$PWD":/workspace aquasec/tfsec:v1.28.5 \
+            /workspace/infra/terraform --format text | tee reports/tfsec.txt
+
+          docker run --rm -v "$PWD":/workspace bridgecrew/checkov:3.2.360 \
+            -d /workspace/infra/terraform --quiet | tee reports/checkov.txt
+        '''
+      }
+    }
+
+    stage('Secrets Scan (gitleaks)') {
+      when {
+        expression { return params.RUN_CODE_SCANS }
+      }
+      steps {
+        sh '''
+          set -euo pipefail
+          mkdir -p reports
+
+          docker run --rm -v "$PWD":/repo zricethezav/gitleaks:v8.21.2 \
+            detect --source=/repo --report-format sarif --report-path=/repo/reports/gitleaks.sarif
+        '''
+      }
+    }
+
+    stage('Docker-based Security Scans') {
+      when {
+        expression { return params.RUN_DOCKER_SCANS }
+      }
+      steps {
+        sh '''
+          set -euo pipefail
+          mkdir -p reports
+
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.56.2 image --severity HIGH,CRITICAL --exit-code 1 ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} | tee reports/trivy-microservice.txt
+
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.56.2 image --severity HIGH,CRITICAL --exit-code 1 ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} | tee reports/trivy-main-app.txt
+
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.56.2 image --severity HIGH,CRITICAL --exit-code 1 ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} | tee reports/trivy-frontend-angular.txt
+
+          docker run --rm -v "$PWD":/workspace aquasec/trivy:0.56.2 fs --severity HIGH,CRITICAL --exit-code 1 /workspace | tee reports/trivy-filesystem.txt
+        '''
+      }
+    }
+
+    stage('Publish to JFrog') {
+      when {
+        allOf {
+          expression { return params.PUSH_ARTIFACTS }
+          expression { return env.CHANGE_ID == null }
+        }
+      }
+      steps {
+        sh '''
+          JFROG_USER=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=username secret/shared/jfrog)
+          JFROG_PASSWORD=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=password secret/shared/jfrog)
+
+          docker login ${JFROG_SERVER#https://} -u ${JFROG_USER} -p ${JFROG_PASSWORD}
+
+          docker tag ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/microservice:${IMAGE_TAG}
+          docker tag ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/main-app:${IMAGE_TAG}
+          docker tag ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/frontend-angular:${IMAGE_TAG}
+
+          docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/microservice:${IMAGE_TAG}
+          docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/main-app:${IMAGE_TAG}
+          docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/frontend-angular:${IMAGE_TAG}
+
+          curl -u ${JFROG_USER}:${JFROG_PASSWORD} -T applications/main-app/target/main-app.war \
+            ${JFROG_SERVER}/artifactory/${JFROG_GENERIC_REPO}/main-app/main-app-${IMAGE_TAG}.war
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      script {
+        sh """
+          mkdir -p reports
+          cat > reports/ci-summary.txt <<EOF
+Build: ${env.BUILD_NUMBER}
+Result: ${currentBuild.currentResult}
+Job: ${env.JOB_NAME}
+URL: ${env.BUILD_URL}
+EOF
+        """
+      }
+      archiveArtifacts artifacts: 'applications/main-app/target/*.war', fingerprint: true
+      archiveArtifacts artifacts: 'applications/frontend-angular/dist/**', allowEmptyArchive: true
+      archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
+      junit testResults: 'applications/**/target/surefire-reports/*.xml', allowEmptyResults: true
+      emailext(
+        to: "${EMAIL_TO}",
+        subject: "[CI] ${currentBuild.currentResult} - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+        mimeType: 'text/html',
+        body: """
+          <p><b>Pipeline:</b> ${env.JOB_NAME}</p>
+          <p><b>Build:</b> #${env.BUILD_NUMBER}</p>
+          <p><b>Status:</b> ${currentBuild.currentResult}</p>
+          <p><b>Reports:</b> Trivy and build summaries attached.</p>
+          <p><a href='${env.BUILD_URL}'>Open Build</a></p>
+        """,
+        attachmentsPattern: 'reports/**, applications/main-app/target/*.war, applications/frontend-angular/dist/**',
+        attachLog: true
+      )
+    }
+  }
+}

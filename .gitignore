@@ -1,0 +1,35 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Build outputs
+dist/
+coverage/
+.angular/
+
+# Java / Maven
+**/target/
+*.class
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+*.local
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# Logs
+*.log

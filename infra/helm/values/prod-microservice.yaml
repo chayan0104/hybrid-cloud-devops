@@ -1,0 +1,16 @@
+replicaCount: 3
+
+image:
+  repository: your-registry.io/microservice
+  tag: prod-stable
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+
+env:
+  APP_ENVIRONMENT: prod

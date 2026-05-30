@@ -1,0 +1,112 @@
+services:
+  frontend:
+    build:
+      context: ./frontend-angular
+    container_name: frontend
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    depends_on:
+      - monolith
+    networks:
+      - frontend-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  monolith:
+    build:
+      context: ./main-app
+    container_name: monolith
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      MICROSERVICE_URL: http://microservice:8081
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      JAVA_TOOL_OPTIONS: "-Xms512m -Xmx1024m"
+    depends_on:
+      microservice:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/main-app/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - frontend-net
+      - backend-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  microservice:
+    build:
+      context: ./microservice
+    container_name: microservice
+    restart: unless-stopped
+    environment:
+      APP_ENVIRONMENT: local
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx512m"
+      DB_HOST: ${POSTGRES_HOST}
+      DB_PORT: ${POSTGRES_PORT}
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "8081:8081"
+    depends_on:
+      chayan-app-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8081/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - backend-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  chayan-app-db:
+    image: postgres:15
+    container_name: chayan-app-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../infra/database/init-scripts:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
+
+networks:
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge

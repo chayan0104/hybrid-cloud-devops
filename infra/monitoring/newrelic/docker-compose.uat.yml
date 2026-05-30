@@ -1,0 +1,10 @@
+services:
+  newrelic-infra:
+    image: newrelic/infrastructure:latest
+    env_file:
+      - .env
+    environment:
+      NRIA_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
+      NRIA_DISPLAY_NAME: ${NEW_RELIC_CLUSTER_NAME}
+    network_mode: host
+    restart: unless-stopped
