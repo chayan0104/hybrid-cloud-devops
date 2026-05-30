@@ -121,7 +121,7 @@ Create 3 jobs pointing to:
 
 Pipeline capabilities:
 
-- CI: builds frontend and microservice images, builds `main-app.war`, scans, publishes to JFrog
+- CI: builds frontend and microservice images, builds `monolith.war`, scans, publishes to JFrog
 - UAT: YAML-based deploy and YAML-based rollback by image substitution
 - PROD: YAML-based rolling/canary/blue-green deploy and YAML-based rollback by previous image
 - Notifications: all Jenkins pipelines send email summaries with attached reports/logs using `emailext`
@@ -147,7 +147,7 @@ Pipeline capabilities:
 - PostgreSQL schema seed: `infra/database/init-scripts/01-init.sql`
 - Includes `customers` and `orders` tables with bootstrap rows.
 - Microservice endpoint `GET /api/orders/{customerId}` reads order data from PostgreSQL.
-- Monolith endpoint `GET /main-app/api/customer-summary/{customerId}` merges customer + order data.
+- Monolith endpoint `GET /monolith/api/customer-summary/{customerId}` merges customer + order data.
 
 ## Local replication
 
@@ -158,6 +158,6 @@ For WSL2 + local Jenkins + Docker scans + JFrog + UAT parity setup, use:
 ## Jenkins reporting and email
 
 - CI reports: Trivy scan outputs and build summary under `reports/`
-- UAT reports: pod snapshot and main-app to microservice bridge output
-- PROD reports: pod snapshot and main-app to microservice bridge output
+- UAT reports: pod snapshot and monolith to microservice bridge output
+- PROD reports: pod snapshot and monolith to microservice bridge output
 - Each pipeline archives `reports/**` and emails status, build URL, and attachments

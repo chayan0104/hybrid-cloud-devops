@@ -3,7 +3,7 @@ pipeline {
 
   environment {
     MICROSERVICE_IMAGE_REPO = "your-registry.io/microservice"
-    MAIN_APP_IMAGE_REPO = "your-registry.io/main-app"
+    MAIN_APP_IMAGE_REPO = "your-registry.io/monolith"
     FRONTEND_IMAGE_REPO = "your-registry.io/frontend-angular"
     IMAGE_TAG = "${env.BUILD_NUMBER}"
     JFROG_SERVER = ""
@@ -74,7 +74,7 @@ pipeline {
 
     stage('Build Main App') {
       steps {
-        dir('applications/main-app') {
+        dir('applications/monolith') {
           sh 'mvn -B clean package'
           sh 'docker build -t ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} .'
         }
@@ -100,11 +100,11 @@ pipeline {
             set -euo pipefail
             mkdir -p reports
 
-            cd applications/main-app
+            cd applications/monolith
             mvn -B sonar:sonar \
-              -Dsonar.projectKey=main-app \
+              -Dsonar.projectKey=monolith \
               -Dsonar.host.url=${SONAR_HOST_URL} \
-              -Dsonar.login=${SONAR_TOKEN} | tee ../../reports/sonar-main-app.txt
+              -Dsonar.login=${SONAR_TOKEN} | tee ../../reports/sonar-monolith.txt
 
             cd ../microservice
             mvn -B sonar:sonar \
@@ -128,8 +128,8 @@ pipeline {
           cd applications/frontend-angular
           npm audit --audit-level=high | tee ../../reports/npm-audit-frontend.txt
 
-          cd ../main-app
-          mvn -B org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7 | tee ../../reports/dependency-check-main-app.txt
+          cd ../monolith
+          mvn -B org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7 | tee ../../reports/dependency-check-monolith.txt
 
           cd ../microservice
           mvn -B org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7 | tee ../../reports/dependency-check-microservice.txt
@@ -183,7 +183,7 @@ pipeline {
             aquasec/trivy:0.56.2 image --severity HIGH,CRITICAL --exit-code 1 ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} | tee reports/trivy-microservice.txt
 
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:0.56.2 image --severity HIGH,CRITICAL --exit-code 1 ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} | tee reports/trivy-main-app.txt
+            aquasec/trivy:0.56.2 image --severity HIGH,CRITICAL --exit-code 1 ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} | tee reports/trivy-monolith.txt
 
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy:0.56.2 image --severity HIGH,CRITICAL --exit-code 1 ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} | tee reports/trivy-frontend-angular.txt
@@ -208,15 +208,15 @@ pipeline {
           docker login ${JFROG_SERVER#https://} -u ${JFROG_USER} -p ${JFROG_PASSWORD}
 
           docker tag ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/microservice:${IMAGE_TAG}
-          docker tag ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/main-app:${IMAGE_TAG}
+          docker tag ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/monolith:${IMAGE_TAG}
           docker tag ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/frontend-angular:${IMAGE_TAG}
 
           docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/microservice:${IMAGE_TAG}
-          docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/main-app:${IMAGE_TAG}
+          docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/monolith:${IMAGE_TAG}
           docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/frontend-angular:${IMAGE_TAG}
 
-          curl -u ${JFROG_USER}:${JFROG_PASSWORD} -T applications/main-app/target/main-app.war \
-            ${JFROG_SERVER}/artifactory/${JFROG_GENERIC_REPO}/main-app/main-app-${IMAGE_TAG}.war
+          curl -u ${JFROG_USER}:${JFROG_PASSWORD} -T applications/monolith/target/monolith.war \
+            ${JFROG_SERVER}/artifactory/${JFROG_GENERIC_REPO}/monolith/monolith-${IMAGE_TAG}.war
         '''
       }
     }
@@ -235,7 +235,7 @@ URL: ${env.BUILD_URL}
 EOF
         """
       }
-      archiveArtifacts artifacts: 'applications/main-app/target/*.war', fingerprint: true
+      archiveArtifacts artifacts: 'applications/monolith/target/*.war', fingerprint: true
       archiveArtifacts artifacts: 'applications/frontend-angular/dist/**', allowEmptyArchive: true
       archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
       junit testResults: 'applications/**/target/surefire-reports/*.xml', allowEmptyResults: true
@@ -250,7 +250,7 @@ EOF
           <p><b>Reports:</b> Trivy and build summaries attached.</p>
           <p><a href='${env.BUILD_URL}'>Open Build</a></p>
         """,
-        attachmentsPattern: 'reports/**, applications/main-app/target/*.war, applications/frontend-angular/dist/**',
+        attachmentsPattern: 'reports/**, applications/monolith/target/*.war, applications/frontend-angular/dist/**',
         attachLog: true
       )
     }

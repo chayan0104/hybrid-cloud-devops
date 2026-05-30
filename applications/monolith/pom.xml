@@ -4,10 +4,10 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.company</groupId>
-  <artifactId>main-app</artifactId>
+  <artifactId>monolith</artifactId>
   <version>1.0.0</version>
   <packaging>war</packaging>
-  <name>main-app</name>
+  <name>monolith</name>
 
   <properties>
     <maven.compiler.source>17</maven.compiler.source>
@@ -28,10 +28,15 @@
       <artifactId>jackson-databind</artifactId>
       <version>2.17.2</version>
     </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.7.3</version>
+    </dependency>
   </dependencies>
 
   <build>
-    <finalName>main-app</finalName>
+    <finalName>monolith</finalName>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

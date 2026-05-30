@@ -12,7 +12,7 @@ Location: `infra/scripts/`
 ## Usage
 
 ```bash
-bash infra/scripts/deploy-war.sh applications/main-app/target/main-app.war ubuntu@host /opt/tomcat/webapps
+bash infra/scripts/deploy-war.sh applications/monolith/target/monolith.war ubuntu@host /opt/tomcat/webapps
 
 bash infra/scripts/rollback-microservice.sh enterprise-uat microservice
 

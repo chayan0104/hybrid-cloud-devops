@@ -21,11 +21,15 @@ docker compose up -d --build
 Verify:
 
 ```bash
-curl http://localhost:9093/api/status
-curl http://localhost:9093/api/orders/1
-curl http://localhost:9092/main-app/api/customer/1
-curl http://localhost:9092/main-app/api/customer-summary/1
+curl http://localhost:9093/microservice/api/status
+curl http://localhost:9093/microservice/api/orders/1
+curl http://localhost:9092/monolith/api/customer/1
+curl http://localhost:9092/monolith/api/customer-summary/1
 curl http://localhost:9091/
+
+# Swagger
+open http://localhost:9092/monolith/swagger
+open http://localhost:9093/microservice/swagger-ui.html
 ```
 
 ## 2. UAT Deployment
@@ -41,7 +45,7 @@ Deploy monolith WAR to UAT Tomcat:
 
 ```bash
 bash infra/scripts/deploy-war.sh \
-  applications/main-app/target/main-app.war \
+  applications/monolith/target/monolith.war \
   ubuntu@uat-tomcat.internal \
   /opt/tomcat/webapps
 ```

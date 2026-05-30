@@ -5,7 +5,7 @@ Production-style reference project with a simple operational model.
 ## Components
 
 - `applications/frontend-angular`: Angular frontend application
-- `applications/main-app`: Java WAR for Tomcat
+- `applications/monolith`: Java monolith WAR for Tomcat
 - `applications/microservice`: Spring Boot microservice
 - `infra/kubernetes`: UAT and PROD manifests
 - `infra/terraform`: reusable AWS modules (Network, Security, ALB, EC2 Tomcat, EKS, RDS)
@@ -25,14 +25,19 @@ Production-style reference project with a simple operational model.
 ## Local Ports and APIs
 
 - Frontend: `http://localhost:9091`
-- Monolith: `http://localhost:9092/main-app`
-- Microservice: `http://localhost:9093`
+- Monolith: `http://localhost:9092/monolith`
+- Microservice: `http://localhost:9093/microservice`
 
 Sample API checks:
 
-- `GET /main-app/api/customer/1` via monolith
-- `GET /api/orders/1` via microservice
-- `GET /main-app/api/customer-summary/1` monolith -> microservice aggregation
+- `GET /monolith/api/customer/1` via monolith
+- `GET /microservice/api/orders/1` via microservice
+- `GET /monolith/api/customer-summary/1` monolith -> microservice aggregation
+
+Swagger:
+
+- Monolith Swagger UI: `http://localhost:9092/monolith/swagger`
+- Microservice Swagger UI: `http://localhost:9093/microservice/swagger-ui.html`
 
 ## Setup Guidance
 

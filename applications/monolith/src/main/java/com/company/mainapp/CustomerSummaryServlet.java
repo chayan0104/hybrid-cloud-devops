@@ -5,6 +5,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.sql.SQLException;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -15,6 +16,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @WebServlet(name = "customerSummaryServlet", urlPatterns = "/api/customer-summary/*")
 public class CustomerSummaryServlet extends HttpServlet {
     private final HttpClient client = HttpClient.newHttpClient();
+    private final DbService dbService = new DbService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -29,11 +31,14 @@ public class CustomerSummaryServlet extends HttpServlet {
             return;
         }
 
-        Customer customer = switch (customerId) {
-            case 1 -> new Customer(1, "John Doe");
-            case 2 -> new Customer(2, "Jane Smith");
-            default -> null;
-        };
+        Customer customer;
+        int dbOrderCount;
+        try {
+            customer = dbService.findCustomerById(customerId);
+            dbOrderCount = dbService.countOrdersByCustomer(customerId);
+        } catch (SQLException ex) {
+            throw new ServletException("Database query failed", ex);
+        }
 
         if (customer == null) {
             resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -61,7 +66,8 @@ public class CustomerSummaryServlet extends HttpServlet {
             "\"customer\":{" +
             "\"id\":" + customer.id() + "," +
             "\"name\":\"" + customer.name() + "\"}," +
-            "\"orders\":" + ordersJson +
+            "\"orders\":" + ordersJson + "," +
+            "\"dbOrderCount\":" + dbOrderCount +
             "}";
 
         resp.getWriter().write(payload);

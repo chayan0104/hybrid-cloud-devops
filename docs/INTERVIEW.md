@@ -5,10 +5,10 @@ This guide is tailored for DevOps interviews based on this repository.
 ## 1. Platform Summary
 
 - UAT runtime:
-  - `main-app.war` on Tomcat Linux VM
+  - `monolith.war` on Tomcat Linux VM
   - `frontend` and `microservice` on Kubernetes namespace `enterprise-uat`
 - PROD runtime:
-  - ALB -> EC2 Tomcat (`main-app.war`)
+  - ALB -> EC2 Tomcat (`monolith.war`)
   - `frontend` and `microservice` on EKS namespace `enterprise-prod`
   - PostgreSQL on RDS
 - PERF-PROD runtime:

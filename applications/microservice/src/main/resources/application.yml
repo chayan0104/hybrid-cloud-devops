@@ -1,5 +1,7 @@
 server:
   port: 8081
+  servlet:
+    context-path: /microservice
 
 app:
   environment: ${APP_ENVIRONMENT:local}
@@ -26,3 +28,9 @@ management:
     health:
       probes:
         enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

@@ -14,6 +14,6 @@ public class InfoServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
-        resp.getWriter().write("{\"name\":\"Hybrid Main App\",\"runtime\":\"Tomcat WAR\",\"version\":\"1.0.0\"}");
+        resp.getWriter().write("{\"name\":\"Hybrid Monolith\",\"runtime\":\"Tomcat WAR\",\"version\":\"1.0.0\"}");
     }
 }

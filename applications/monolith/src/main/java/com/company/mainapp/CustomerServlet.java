@@ -1,8 +1,7 @@
 package com.company.mainapp;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.sql.SQLException;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -12,12 +11,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @WebServlet(name = "customerServlet", urlPatterns = "/api/customer/*")
 public class CustomerServlet extends HttpServlet {
-    private static final Map<Integer, Customer> CUSTOMERS = new HashMap<>();
-
-    static {
-        CUSTOMERS.put(1, new Customer(1, "John Doe"));
-        CUSTOMERS.put(2, new Customer(2, "Jane Smith"));
-    }
+    private final DbService dbService = new DbService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -26,13 +20,25 @@ public class CustomerServlet extends HttpServlet {
         resp.setCharacterEncoding("UTF-8");
 
         Integer customerId = extractId(req.getPathInfo());
-        if (customerId == null || !CUSTOMERS.containsKey(customerId)) {
+        if (customerId == null) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            resp.getWriter().write("{\"error\":\"Invalid customer id\"}");
+            return;
+        }
+
+        Customer customer;
+        try {
+            customer = dbService.findCustomerById(customerId);
+        } catch (SQLException ex) {
+            throw new ServletException("Database query failed", ex);
+        }
+
+        if (customer == null) {
             resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
             resp.getWriter().write("{\"error\":\"Customer not found\"}");
             return;
         }
 
-        Customer customer = CUSTOMERS.get(customerId);
         resp.getWriter().write("{\"id\":" + customer.id() + ",\"name\":\"" + customer.name() + "\"}");
     }
 

@@ -11,19 +11,27 @@ const environment = {
   standalone: true,
   template: `
     <main class="page">
-      <h1>Chayan App UI</h1>
-      <p>Frontend calls Monolith and Microservice directly.</p>
+      <section class="hero">
+        <h1>Chayan App</h1>
+        <p>Frontend -> Monolith and Microservice with real PostgreSQL-backed orders.</p>
+        <div class="quick-links">
+          <a target="_blank" rel="noreferrer" href="http://localhost:9092/monolith/swagger">Monolith Swagger</a>
+          <a target="_blank" rel="noreferrer" href="http://localhost:9093/swagger-ui.html">Microservice Swagger</a>
+        </div>
+      </section>
 
-      <label>
-        Customer ID
-        <input type="number" [value]="customerId" (input)="onIdChange($event)" min="1" />
-      </label>
+      <section class="panel">
+        <label>
+          Customer ID
+          <input type="number" [value]="customerId" (input)="onIdChange($event)" min="1" />
+        </label>
 
-      <div class="actions">
-        <button type="button" (click)="loadCustomer()">Get Customer</button>
-        <button type="button" (click)="loadOrders()">Get Orders</button>
-        <button type="button" (click)="loadSummary()">Get Customer Summary</button>
-      </div>
+        <div class="actions">
+          <button type="button" (click)="loadCustomer()">Get Customer</button>
+          <button type="button" (click)="loadOrders()">Get Orders</button>
+          <button type="button" (click)="loadSummary()">Get Customer Summary</button>
+        </div>
+      </section>
 
       <pre>{{ result }}</pre>
     </main>
@@ -37,13 +45,37 @@ const environment = {
         margin: 0 auto;
       }
 
+      .hero {
+        margin-bottom: 24px;
+      }
+
+      .quick-links {
+        display: flex;
+        gap: 12px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+      }
+
+      .quick-links a {
+        color: #67e8f9;
+        text-decoration: none;
+        border-bottom: 1px solid #164e63;
+      }
+
       h1 {
         margin: 0;
-        font-size: 2rem;
+        font-size: 2.4rem;
+        letter-spacing: -0.03em;
       }
 
       p {
         color: #cbd5e1;
+      }
+
+      .panel {
+        border: 1px solid #334155;
+        background: linear-gradient(180deg, #111827, #0b1220);
+        padding: 16px;
       }
 
       label {
@@ -72,12 +104,17 @@ const environment = {
         cursor: pointer;
       }
 
+      button:hover {
+        background: #334155;
+      }
+
       pre {
         margin-top: 20px;
         background: #020617;
         border: 1px solid #334155;
         padding: 16px;
         white-space: pre-wrap;
+        min-height: 220px;
       }
     `
   ]
@@ -92,15 +129,15 @@ class AppComponent {
   }
 
   async loadCustomer() {
-    this.result = await this.fetchJson(`${environment.monolithUrl}/main-app/api/customer/${this.customerId}`);
+    this.result = await this.fetchJson(`${environment.monolithUrl}/monolith/api/customer/${this.customerId}`);
   }
 
   async loadOrders() {
-    this.result = await this.fetchJson(`${environment.microserviceUrl}/api/orders/${this.customerId}`);
+    this.result = await this.fetchJson(`${environment.microserviceUrl}/microservice/api/orders/${this.customerId}`);
   }
 
   async loadSummary() {
-    this.result = await this.fetchJson(`${environment.monolithUrl}/main-app/api/customer-summary/${this.customerId}`);
+    this.result = await this.fetchJson(`${environment.monolithUrl}/monolith/api/customer-summary/${this.customerId}`);
   }
 
   private async fetchJson(url: string): Promise<string> {

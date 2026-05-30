@@ -15,6 +15,6 @@ public class HealthServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
-        resp.getWriter().write("{\"status\":\"UP\",\"service\":\"main-app\",\"timestamp\":\"" + Instant.now() + "\"}");
+        resp.getWriter().write("{\"status\":\"UP\",\"service\":\"monolith\",\"timestamp\":\"" + Instant.now() + "\"}");
     }
 }

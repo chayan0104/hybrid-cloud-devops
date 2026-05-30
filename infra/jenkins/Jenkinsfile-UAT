@@ -91,8 +91,8 @@ pipeline {
       }
       steps {
         sh '''
-          ssh ${UAT_MAIN_APP_HOST} "cp /opt/tomcat/webapps/main-app.war /opt/tomcat/webapps/main-app.war.bak || true"
-          scp applications/main-app/target/main-app.war ${UAT_MAIN_APP_HOST}:/opt/tomcat/webapps/
+          ssh ${UAT_MAIN_APP_HOST} "cp /opt/tomcat/webapps/monolith.war /opt/tomcat/webapps/monolith.war.bak || true"
+          scp applications/monolith/target/monolith.war ${UAT_MAIN_APP_HOST}:/opt/tomcat/webapps/
           ssh ${UAT_MAIN_APP_HOST} "sudo systemctl restart tomcat"
         '''
       }
@@ -104,8 +104,8 @@ pipeline {
       }
       steps {
         sh 'mkdir -p reports && kubectl get pods -n ${UAT_NAMESPACE} | tee reports/uat-pods.txt'
-        sh 'curl -fsS http://${UAT_TOMCAT_HTTP}:8080/main-app/health >/dev/null'
-        sh 'curl -fsS http://${UAT_TOMCAT_HTTP}:8080/main-app/api/microservice-status | tee reports/uat-main-app-microservice-bridge.json'
+        sh 'curl -fsS http://${UAT_TOMCAT_HTTP}:8080/monolith/health >/dev/null'
+        sh 'curl -fsS http://${UAT_TOMCAT_HTTP}:8080/monolith/api/microservice-status | tee reports/uat-monolith-microservice-bridge.json'
       }
     }
 
@@ -133,7 +133,7 @@ pipeline {
             kubectl rollout undo deployment/frontend -n ${UAT_NAMESPACE} || true
           fi
 
-          ssh ${UAT_MAIN_APP_HOST} "cp /opt/tomcat/webapps/main-app.war.bak /opt/tomcat/webapps/main-app.war || true"
+          ssh ${UAT_MAIN_APP_HOST} "cp /opt/tomcat/webapps/monolith.war.bak /opt/tomcat/webapps/monolith.war || true"
           ssh ${UAT_MAIN_APP_HOST} "sudo systemctl restart tomcat || true"
         '''
       }
@@ -194,7 +194,7 @@ EOF
             rm -f infra/kubernetes/uat/deployment.rollback.yaml || true
             rm -f infra/kubernetes/uat/frontend-deployment.rollback.yaml || true
           '''
-          sh 'ssh ${UAT_MAIN_APP_HOST} "cp /opt/tomcat/webapps/main-app.war.bak /opt/tomcat/webapps/main-app.war || true"'
+          sh 'ssh ${UAT_MAIN_APP_HOST} "cp /opt/tomcat/webapps/monolith.war.bak /opt/tomcat/webapps/monolith.war || true"'
           sh 'ssh ${UAT_MAIN_APP_HOST} "sudo systemctl restart tomcat || true"'
         }
       }

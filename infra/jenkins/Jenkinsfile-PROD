@@ -141,8 +141,8 @@ pipeline {
       }
       steps {
         sh '''
-          ssh ${PROD_MAIN_APP_HOST} "cp /opt/tomcat/webapps/main-app.war /opt/tomcat/webapps/main-app.war.bak || true"
-          scp applications/main-app/target/main-app.war ${PROD_MAIN_APP_HOST}:/opt/tomcat/webapps/
+          ssh ${PROD_MAIN_APP_HOST} "cp /opt/tomcat/webapps/monolith.war /opt/tomcat/webapps/monolith.war.bak || true"
+          scp applications/monolith/target/monolith.war ${PROD_MAIN_APP_HOST}:/opt/tomcat/webapps/
           ssh ${PROD_MAIN_APP_HOST} "sudo systemctl restart tomcat"
         '''
       }
@@ -154,8 +154,8 @@ pipeline {
       }
       steps {
         sh 'mkdir -p reports && kubectl get pods -n ${PROD_NAMESPACE} | tee reports/prod-pods.txt'
-        sh 'curl -fsS http://${PROD_TOMCAT_HTTP}:8080/main-app/health >/dev/null'
-        sh 'curl -fsS http://${PROD_TOMCAT_HTTP}:8080/main-app/api/microservice-status | tee reports/prod-main-app-microservice-bridge.json'
+        sh 'curl -fsS http://${PROD_TOMCAT_HTTP}:8080/monolith/health >/dev/null'
+        sh 'curl -fsS http://${PROD_TOMCAT_HTTP}:8080/monolith/api/microservice-status | tee reports/prod-monolith-microservice-bridge.json'
       }
     }
 
@@ -171,7 +171,7 @@ pipeline {
           kubectl rollout undo deployment/microservice-blue -n ${PROD_NAMESPACE} || true
           kubectl rollout undo deployment/microservice-green -n ${PROD_NAMESPACE} || true
 
-          ssh ${PROD_MAIN_APP_HOST} "cp /opt/tomcat/webapps/main-app.war.bak /opt/tomcat/webapps/main-app.war || true"
+          ssh ${PROD_MAIN_APP_HOST} "cp /opt/tomcat/webapps/monolith.war.bak /opt/tomcat/webapps/monolith.war || true"
           ssh ${PROD_MAIN_APP_HOST} "sudo systemctl restart tomcat || true"
         '''
       }
@@ -248,7 +248,7 @@ EOF
             rm -f infra/kubernetes/prod/deployment.rollback.yaml || true
             rm -f infra/kubernetes/prod/frontend-deployment.rollback.yaml || true
           '''
-          sh 'ssh ${PROD_MAIN_APP_HOST} "cp /opt/tomcat/webapps/main-app.war.bak /opt/tomcat/webapps/main-app.war || true"'
+          sh 'ssh ${PROD_MAIN_APP_HOST} "cp /opt/tomcat/webapps/monolith.war.bak /opt/tomcat/webapps/monolith.war || true"'
           sh 'ssh ${PROD_MAIN_APP_HOST} "sudo systemctl restart tomcat || true"'
         }
       }

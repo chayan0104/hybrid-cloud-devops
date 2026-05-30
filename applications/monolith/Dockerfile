@@ -7,6 +7,6 @@ RUN mvn -B clean package -DskipTests
 
 FROM tomcat:10.1-jdk17-temurin
 RUN rm -rf /usr/local/tomcat/webapps/*
-COPY --from=build /workspace/target/main-app.war /usr/local/tomcat/webapps/main-app.war
+COPY --from=build /workspace/target/monolith.war /usr/local/tomcat/webapps/monolith.war
 
 EXPOSE 8080

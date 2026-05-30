@@ -12,7 +12,7 @@ resource "aws_lb_target_group" "tomcat" {
   vpc_id   = var.vpc_id
 
   health_check {
-    path = "/main-app/health"
+    path = "/monolith/health"
   }
 }
 

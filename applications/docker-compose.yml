@@ -18,20 +18,25 @@ services:
 
   monolith:
     build:
-      context: ./main-app
+      context: ./monolith
     container_name: monolith
     restart: unless-stopped
     ports:
       - "9092:8080"
     environment:
-      MICROSERVICE_URL: http://microservice:8081
+      MICROSERVICE_URL: http://microservice:8081/microservice
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
       JAVA_TOOL_OPTIONS: "-Xms512m -Xmx1024m"
+      DB_HOST: ${POSTGRES_HOST:-postgres-db}
+      DB_PORT: ${POSTGRES_PORT:-5432}
+      DB_NAME: ${POSTGRES_DB:-app_db}
+      DB_USER: ${POSTGRES_USER:-app_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-app_password}
     depends_on:
       microservice:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/main-app/health || exit 1"]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/monolith/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -65,7 +70,7 @@ services:
       postgres-db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:8081/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8081/microservice/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5

@@ -26,7 +26,7 @@ Each pipeline generates `reports/**`, archives it, and sends email with attachme
 
 CI also includes:
 
-- SonarQube analysis (main-app and microservice)
+- SonarQube analysis (monolith and microservice)
 - Dependency audits (`npm audit` and OWASP dependency-check)
 - IaC security scans (`tfsec` and `checkov`)
 - Secret leak scanning (`gitleaks`)

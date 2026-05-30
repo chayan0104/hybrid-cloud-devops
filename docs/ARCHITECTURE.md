@@ -5,14 +5,14 @@
 Request flow pattern:
 
 - Browser -> Angular frontend
-- Angular -> Monolith (`/main-app/api/customer/{id}`)
-- Angular -> Microservice (`/api/orders/{id}`)
-- Angular -> Monolith summary (`/main-app/api/customer-summary/{id}`)
-- Monolith summary -> Microservice (`/api/orders/{id}`)
+- Angular -> Monolith (`/monolith/api/customer/{id}`)
+- Angular -> Microservice (`/microservice/api/orders/{id}`)
+- Angular -> Monolith summary (`/monolith/api/customer-summary/{id}`)
+- Monolith summary -> Microservice (`/microservice/api/orders/{id}`)
 - Microservice -> PostgreSQL
 
 - UAT:
-  - Tomcat Linux VM runs `main-app.war`
+  - Tomcat Linux VM runs `monolith.war`
   - Kubernetes namespace `enterprise-uat` runs `frontend` and `microservice` pods
   - PostgreSQL is consumed by microservice using Vault-injected credentials
 

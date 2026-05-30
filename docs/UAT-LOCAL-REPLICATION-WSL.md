@@ -78,7 +78,7 @@ Use `../infra/jenkins/Jenkinsfile-CI`.
 Features in CI:
 
 - Builds frontend Angular container image
-- Builds main-app WAR and microservice JAR
+- Builds monolith WAR and microservice JAR
 - Builds Docker images (including app-server images for local parity)
 - Runs Trivy image scans in Docker containers
 - Runs Trivy filesystem scan
@@ -92,7 +92,7 @@ Use `../infra/jenkins/Jenkinsfile-UAT`.
 
 UAT deployment model in pipeline:
 
-- `main-app.war` deploy to Tomcat host
+- `monolith.war` deploy to Tomcat host
 - frontend and microservice deploy to Kubernetes via YAML image substitution
 - microservice reads PostgreSQL credentials from Vault-backed `db-secrets`
 
@@ -101,15 +101,15 @@ Validate:
 ```bash
 kubectl get all -n enterprise-uat
 kubectl rollout status deployment/microservice -n enterprise-uat
-curl http://localhost:9093/api/orders/1
-curl http://localhost:9092/main-app/api/customer-summary/1
+curl http://localhost:9093/microservice/api/orders/1
+curl http://localhost:9092/monolith/api/customer-summary/1
 ```
 
 ## 8. JFrog repository layout
 
-- Docker images: `docker-local/{microservice,main-app,frontend-angular}:<BUILD_NUMBER>`
+- Docker images: `docker-local/{microservice,monolith,frontend-angular}:<BUILD_NUMBER>`
 - WAR artifacts:
-  - `generic-local/main-app/main-app-<BUILD_NUMBER>.war`
+  - `generic-local/monolith/monolith-<BUILD_NUMBER>.war`
 
 ## 9. Optional local New Relic
 

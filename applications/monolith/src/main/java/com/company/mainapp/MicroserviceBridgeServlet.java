@@ -18,7 +18,7 @@ public class MicroserviceBridgeServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String baseUrl = System.getenv().getOrDefault("MICROSERVICE_URL", "http://localhost:8081");
+        String baseUrl = System.getenv().getOrDefault("MICROSERVICE_URL", "http://localhost:8081/microservice");
 
         try {
             HttpRequest request = HttpRequest.newBuilder()
