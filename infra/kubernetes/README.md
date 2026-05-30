@@ -6,7 +6,7 @@ Location: `infra/kubernetes/`
 
 - `uat/`: frontend + microservice in `enterprise-uat`
 - `prod/`: frontend + microservice in `enterprise-prod` with rolling/canary/blue-green resources
-- `perf-prod/`: perf environment for microservice in `enterprise-perf-prod`
+- `perf-prod/`: perf environment for frontend + microservice in `enterprise-perf-prod`
 
 ## Core Pattern
 

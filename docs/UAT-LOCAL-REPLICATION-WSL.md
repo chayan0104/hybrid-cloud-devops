@@ -101,7 +101,8 @@ Validate:
 ```bash
 kubectl get all -n enterprise-uat
 kubectl rollout status deployment/microservice -n enterprise-uat
-curl http://localhost:8081/api/customers
+curl http://localhost:9093/api/orders/1
+curl http://localhost:9092/main-app/api/customer-summary/1
 ```
 
 ## 8. JFrog repository layout

@@ -145,8 +145,9 @@ Pipeline capabilities:
 ## Database integration baseline
 
 - PostgreSQL schema seed: `infra/database/init-scripts/01-init.sql`
-- Includes `customers` table and one bootstrap insert row.
-- Microservice endpoint `GET /api/customers` reads data from this table.
+- Includes `customers` and `orders` tables with bootstrap rows.
+- Microservice endpoint `GET /api/orders/{customerId}` reads order data from PostgreSQL.
+- Monolith endpoint `GET /main-app/api/customer-summary/{customerId}` merges customer + order data.
 
 ## Local replication
 

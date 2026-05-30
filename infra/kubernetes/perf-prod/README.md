@@ -8,7 +8,9 @@ Namespace: `enterprise-perf-prod`
 - `deployment.yaml`
 - `service.yaml`
 - `hpa.yaml`
+- `frontend-deployment.yaml`
+- `frontend-service.yaml`
 
 ## Purpose
 
-Microservice performance validation with PROD-like scaling profile.
+PROD-like performance validation for frontend and microservice workloads.

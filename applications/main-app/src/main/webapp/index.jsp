@@ -11,6 +11,8 @@
     <ul>
       <li><a href="health">Health</a></li>
       <li><a href="api/info">Info</a></li>
+      <li><a href="api/customer/1">Customer 1</a></li>
+      <li><a href="api/customer-summary/1">Customer Summary 1</a></li>
       <li><a href="api/microservice-status">Microservice Status Bridge</a></li>
     </ul>
   </body>

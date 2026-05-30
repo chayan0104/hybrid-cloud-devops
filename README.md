@@ -22,6 +22,18 @@ Production-style reference project with a simple operational model.
 - PROD: frontend Angular + Nginx in EKS, monolith on EC2 Tomcat, microservice in EKS, PostgreSQL on RDS
 - PERF-PROD: PROD-like topology for validation, using same Terraform modules
 
+## Local Ports and APIs
+
+- Frontend: `http://localhost:9091`
+- Monolith: `http://localhost:9092/main-app`
+- Microservice: `http://localhost:9093`
+
+Sample API checks:
+
+- `GET /main-app/api/customer/1` via monolith
+- `GET /api/orders/1` via microservice
+- `GET /main-app/api/customer-summary/1` monolith -> microservice aggregation
+
 ## Setup Guidance
 
 1. Start with `docs/SETUP-AND-DEPLOYMENT-GUIDE.md`.

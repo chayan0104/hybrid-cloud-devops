@@ -14,10 +14,14 @@ pipeline {
   parameters {
     string(name: 'IMAGE_TAG', defaultValue: 'latest', description: 'Image tag to deploy for frontend and microservice')
     booleanParam(name: 'ROLLBACK', defaultValue: false, description: 'Rollback deployment when validation fails')
+    booleanParam(name: 'ROLLBACK_ONLY', defaultValue: false, description: 'Run rollback only and skip deployment stages')
   }
 
   stages {
     stage('Load UAT Secrets from Vault') {
+      when {
+        expression { return !params.ROLLBACK_ONLY }
+      }
       steps {
         withCredentials([usernamePassword(credentialsId: 'vault-approle', usernameVariable: 'ROLE_ID', passwordVariable: 'SECRET_ID')]) {
           script {
@@ -38,6 +42,9 @@ pipeline {
     }
 
     stage('Deploy Microservice UAT (YAML Only)') {
+      when {
+        expression { return !params.ROLLBACK_ONLY }
+      }
       steps {
         sh '''
           PREVIOUS_IMAGE=$(kubectl get deployment microservice -n ${UAT_NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)
@@ -79,6 +86,9 @@ pipeline {
     }
 
     stage('Deploy Main App WAR UAT') {
+      when {
+        expression { return !params.ROLLBACK_ONLY }
+      }
       steps {
         sh '''
           ssh ${UAT_MAIN_APP_HOST} "cp /opt/tomcat/webapps/main-app.war /opt/tomcat/webapps/main-app.war.bak || true"
@@ -89,10 +99,43 @@ pipeline {
     }
 
     stage('Validate UAT') {
+      when {
+        expression { return !params.ROLLBACK_ONLY }
+      }
       steps {
         sh 'mkdir -p reports && kubectl get pods -n ${UAT_NAMESPACE} | tee reports/uat-pods.txt'
         sh 'curl -fsS http://${UAT_TOMCAT_HTTP}:8080/main-app/health >/dev/null'
         sh 'curl -fsS http://${UAT_TOMCAT_HTTP}:8080/main-app/api/microservice-status | tee reports/uat-main-app-microservice-bridge.json'
+      }
+    }
+
+    stage('Rollback UAT (Parameter)') {
+      when {
+        expression { return params.ROLLBACK_ONLY }
+      }
+      steps {
+        sh '''
+          PREVIOUS_IMAGE=$(kubectl get deployment microservice -n ${UAT_NAMESPACE} -o jsonpath='{.metadata.annotations.previous-image}' 2>/dev/null || true)
+          if [ -n "${PREVIOUS_IMAGE}" ]; then
+            sed "s|__MICROSERVICE_IMAGE__|${PREVIOUS_IMAGE}|g" infra/kubernetes/uat/deployment.yaml > infra/kubernetes/uat/deployment.rollback.yaml
+            kubectl apply -f infra/kubernetes/uat/deployment.rollback.yaml
+            kubectl rollout status deployment/microservice -n ${UAT_NAMESPACE}
+          else
+            kubectl rollout undo deployment/microservice -n ${UAT_NAMESPACE} || true
+          fi
+
+          PREVIOUS_FRONTEND_IMAGE=$(kubectl get deployment frontend -n ${UAT_NAMESPACE} -o jsonpath='{.metadata.annotations.previous-image}' 2>/dev/null || true)
+          if [ -n "${PREVIOUS_FRONTEND_IMAGE}" ]; then
+            sed "s|__FRONTEND_IMAGE__|${PREVIOUS_FRONTEND_IMAGE}|g" infra/kubernetes/uat/frontend-deployment.yaml > infra/kubernetes/uat/frontend-deployment.rollback.yaml
+            kubectl apply -f infra/kubernetes/uat/frontend-deployment.rollback.yaml
+            kubectl rollout status deployment/frontend -n ${UAT_NAMESPACE}
+          else
+            kubectl rollout undo deployment/frontend -n ${UAT_NAMESPACE} || true
+          fi
+
+          ssh ${UAT_MAIN_APP_HOST} "cp /opt/tomcat/webapps/main-app.war.bak /opt/tomcat/webapps/main-app.war || true"
+          ssh ${UAT_MAIN_APP_HOST} "sudo systemctl restart tomcat || true"
+        '''
       }
     }
   }

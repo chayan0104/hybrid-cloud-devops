@@ -15,16 +15,23 @@ pipeline {
     string(name: 'IMAGE_TAG', defaultValue: 'latest', description: 'Image tag for frontend and microservice')
     choice(name: 'DEPLOYMENT_STRATEGY', choices: ['canary', 'blue-green', 'rolling'], description: 'Microservice release strategy')
     booleanParam(name: 'ROLLBACK', defaultValue: true, description: 'Rollback on failure')
+    booleanParam(name: 'ROLLBACK_ONLY', defaultValue: false, description: 'Run rollback only and skip deployment stages')
   }
 
   stages {
     stage('Approval') {
+      when {
+        expression { return !params.ROLLBACK_ONLY }
+      }
       steps {
         input message: 'Approve production deployment?', ok: 'Deploy'
       }
     }
 
     stage('Load PROD Secrets from Vault') {
+      when {
+        expression { return !params.ROLLBACK_ONLY }
+      }
       steps {
         withCredentials([usernamePassword(credentialsId: 'vault-approle', usernameVariable: 'ROLE_ID', passwordVariable: 'SECRET_ID')]) {
           script {
@@ -45,6 +52,9 @@ pipeline {
     }
 
     stage('Deploy Microservice (YAML Only)') {
+      when {
+        expression { return !params.ROLLBACK_ONLY }
+      }
       steps {
         script {
           sh '''
@@ -126,6 +136,9 @@ pipeline {
     }
 
     stage('Deploy Main App WAR PROD') {
+      when {
+        expression { return !params.ROLLBACK_ONLY }
+      }
       steps {
         sh '''
           ssh ${PROD_MAIN_APP_HOST} "cp /opt/tomcat/webapps/main-app.war /opt/tomcat/webapps/main-app.war.bak || true"
@@ -136,10 +149,31 @@ pipeline {
     }
 
     stage('Validate PROD') {
+      when {
+        expression { return !params.ROLLBACK_ONLY }
+      }
       steps {
         sh 'mkdir -p reports && kubectl get pods -n ${PROD_NAMESPACE} | tee reports/prod-pods.txt'
         sh 'curl -fsS http://${PROD_TOMCAT_HTTP}:8080/main-app/health >/dev/null'
         sh 'curl -fsS http://${PROD_TOMCAT_HTTP}:8080/main-app/api/microservice-status | tee reports/prod-main-app-microservice-bridge.json'
+      }
+    }
+
+    stage('Rollback PROD (Parameter)') {
+      when {
+        expression { return params.ROLLBACK_ONLY }
+      }
+      steps {
+        sh '''
+          kubectl rollout undo deployment/microservice -n ${PROD_NAMESPACE} || true
+          kubectl rollout undo deployment/frontend -n ${PROD_NAMESPACE} || true
+          kubectl rollout undo deployment/microservice-canary -n ${PROD_NAMESPACE} || true
+          kubectl rollout undo deployment/microservice-blue -n ${PROD_NAMESPACE} || true
+          kubectl rollout undo deployment/microservice-green -n ${PROD_NAMESPACE} || true
+
+          ssh ${PROD_MAIN_APP_HOST} "cp /opt/tomcat/webapps/main-app.war.bak /opt/tomcat/webapps/main-app.war || true"
+          ssh ${PROD_MAIN_APP_HOST} "sudo systemctl restart tomcat || true"
+        '''
       }
     }
   }

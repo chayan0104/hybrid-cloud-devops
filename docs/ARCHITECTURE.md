@@ -2,6 +2,15 @@
 
 ## Runtime Architecture
 
+Request flow pattern:
+
+- Browser -> Angular frontend
+- Angular -> Monolith (`/main-app/api/customer/{id}`)
+- Angular -> Microservice (`/api/orders/{id}`)
+- Angular -> Monolith summary (`/main-app/api/customer-summary/{id}`)
+- Monolith summary -> Microservice (`/api/orders/{id}`)
+- Microservice -> PostgreSQL
+
 - UAT:
   - Tomcat Linux VM runs `main-app.war`
   - Kubernetes namespace `enterprise-uat` runs `frontend` and `microservice` pods

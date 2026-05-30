@@ -21,10 +21,11 @@ docker compose up -d --build
 Verify:
 
 ```bash
-curl http://localhost:8081/api/status
-curl http://localhost:8081/api/customers
-curl http://localhost:8080/main-app/health
-curl http://localhost:8082/
+curl http://localhost:9093/api/status
+curl http://localhost:9093/api/orders/1
+curl http://localhost:9092/main-app/api/customer/1
+curl http://localhost:9092/main-app/api/customer-summary/1
+curl http://localhost:9091/
 ```
 
 ## 2. UAT Deployment
