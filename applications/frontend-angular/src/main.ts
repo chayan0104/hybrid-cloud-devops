@@ -16,7 +16,7 @@ const environment = {
         <p>Frontend -> Monolith and Microservice with real PostgreSQL-backed orders.</p>
         <div class="quick-links">
           <a target="_blank" rel="noreferrer" href="http://localhost:9092/monolith/swagger">Monolith Swagger</a>
-          <a target="_blank" rel="noreferrer" href="http://localhost:9093/swagger-ui.html">Microservice Swagger</a>
+          <a target="_blank" rel="noreferrer" href="http://localhost:9093/microservice/swagger-ui.html">Microservice Swagger</a>
         </div>
       </section>
 

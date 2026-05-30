@@ -1,15 +1,17 @@
 FROM node:20-alpine AS build
+
 WORKDIR /app
 
-COPY package.json ./
+COPY package*.json ./
 RUN npm install
-
-COPY angular.json tsconfig.json tsconfig.app.json ./
-COPY src ./src
-RUN npm run build
+COPY . .
+RUN npm run build -- --configuration production
 
 FROM nginx:1.27-alpine
+
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist/frontend-angular/browser /usr/share/nginx/html
 
 EXPOSE 8080
+
+CMD ["nginx", "-g", "daemon off;"]
