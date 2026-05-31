@@ -33,7 +33,7 @@ pipeline {
   stages {
     stage('Validate Toolchain') {
       steps {
-        sh(shell: '/bin/bash', script: '''
+        sh(script: '''#!/bin/bash
           set -euo pipefail
           java -version
           mvn -version
@@ -51,7 +51,7 @@ pipeline {
         stage('Build Frontend') {
           steps {
             dir('applications/frontend-angular') {
-              sh(shell: '/bin/bash', script: '''
+              sh(script: '''#!/bin/bash
                 set -euo pipefail
                 npm ci
                 npm run build
@@ -64,7 +64,7 @@ pipeline {
         stage('Build Monolith') {
           steps {
             dir('applications/monolith') {
-              sh(shell: '/bin/bash', script: '''
+              sh(script: '''#!/bin/bash
                 set -euo pipefail
                 mvn -B clean package -DskipTests
                 docker build -t ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} .
@@ -76,7 +76,7 @@ pipeline {
         stage('Build Microservice') {
           steps {
             dir('applications/microservice') {
-              sh(shell: '/bin/bash', script: '''
+              sh(script: '''#!/bin/bash
                 set -euo pipefail
                 mvn -B clean test package
                 docker build -t ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} .
@@ -95,7 +95,7 @@ pipeline {
             stage('SonarQube Analysis') {
               steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                  sh(shell: '/bin/bash', script: '''
+                  sh(script: '''#!/bin/bash
                     set -euo pipefail
 
                     cd applications/monolith
@@ -122,7 +122,7 @@ pipeline {
             stage('Dependency Audit') {
               options { timeout(time: 25, unit: 'MINUTES') }
               steps {
-                sh(shell: '/bin/bash', script: '''
+                sh(script: '''#!/bin/bash
                   set -euo pipefail
 
                   cd applications/frontend-angular
@@ -143,7 +143,7 @@ pipeline {
 
             stage('IaC/Infra Code Scan') {
               steps {
-                sh(shell: '/bin/bash', script: '''
+                sh(script: '''#!/bin/bash
                   set -euo pipefail
 
                   docker run --rm -v "$PWD":/workspace aquasec/tfsec:v1.28.5 \
@@ -166,7 +166,7 @@ pipeline {
 
             stage('Secrets Scan') {
               steps {
-                sh(shell: '/bin/bash', script: '''
+                sh(script: '''#!/bin/bash
                   set -euo pipefail
                   
                   # FIXED: correct output capture (old "->" was invalid)
@@ -184,7 +184,7 @@ pipeline {
           stages {
             stage('Trivy Image Scans') {
               steps {
-                sh(shell: '/bin/bash', script: '''
+                sh(script: '''#!/bin/bash
                   set -euo pipefail
 
                   docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
@@ -204,7 +204,7 @@ pipeline {
 
             stage('Trivy Filesystem Scan') {
               steps {
-                sh(shell: '/bin/bash', script: '''
+                sh(script: '''#!/bin/bash
                   set -euo pipefail
                   
 
@@ -234,7 +234,7 @@ pipeline {
             passwordVariable: 'DOCKER_PASS'
           )
         ]) {
-          sh(shell: '/bin/bash', script: '''
+          sh(script: '''#!/bin/bash
             set -euo pipefail
             echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
 
