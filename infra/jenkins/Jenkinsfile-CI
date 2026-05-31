@@ -16,9 +16,17 @@ pipeline {
   }
 
   parameters {
-    booleanParam(name: 'RUN_DOCKER_SCANS', defaultValue: true, description: 'Run Trivy image and filesystem scans')
-    booleanParam(name: 'RUN_CODE_SCANS', defaultValue: true, description: 'Run SonarQube, dependency audits, IaC scans, and gitleaks')
-    booleanParam(name: 'PUSH_ARTIFACTS', defaultValue: true, description: 'Push images and WAR to ${Env.IMAGE_REGISTRY} and JFrog (if configured)')
+    booleanParam(name: 'START_BUILD', defaultValue: true,
+    description: 'Build frotnend, main app, and microservice')
+
+    booleanParam(name: 'RUN_DOCKER_SCANS', defaultValue: true, 
+    description: 'Run Trivy image and filesystem scans')
+
+    booleanParam(name: 'RUN_CODE_SCANS', defaultValue: true, 
+    description: 'Run SonarQube, dependency audits, IaC scans, and gitleaks')
+
+    booleanParam(name: 'PUSH_ARTIFACTS', defaultValue: true, 
+    description: 'Push images and WAR to ${Env.IMAGE_REGISTRY} and JFrog (if configured)')
   }
 
   options {
@@ -62,32 +70,38 @@ pipeline {
     //     }
     //   }
     // }
-
-    stage('Build Frontend Angular Container') {
-      steps {
-        dir('applications/frontend-angular') {
-          sh 'npm install'
-          sh 'npm run build'
-          sh 'docker build -t ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} .'
-        }
+    stage('Parallel_build') {
+      when {
+        expression { return params.START_BUILD }
       }
-    }
+      parallel {
+         stage('Build Frontend Angular Container') {
+            steps {
+              dir('applications/frontend-angular') {
+                sh 'npm install'
+                sh 'npm run build'
+                sh 'docker build -t ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} .'
+              }
+            }
+          }
 
-    stage('Build Main App') {
-      steps {
-        dir('applications/monolith') {
-          sh 'mvn -B clean package'
-          sh 'docker build -t ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} .'
-        }
-      }
-    }
+          stage('Build Main App') {
+            steps {
+              dir('applications/monolith') {
+                sh 'mvn -B clean package'
+                sh 'docker build -t ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} .'
+              }
+            }
+          }
 
-    stage('Build Microservice') {
-      steps {
-        dir('applications/microservice') {
-          sh 'mvn -B clean test package'
-          sh 'docker build -t ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} .'
-        }
+          stage('Build Microservice') {
+            steps {
+              dir('applications/microservice') {
+                sh 'mvn -B clean test package'
+                sh 'docker build -t ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} .'
+              }
+            }
+          }
       }
     }
 
