@@ -70,7 +70,7 @@ pipeline {
     //     }
     //   }
     // }
-    stage('Parallel_build') {
+    stage('') {
       when {
         expression { return params.START_BUILD }
       }
