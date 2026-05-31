@@ -258,8 +258,15 @@ pipeline {
             set -eu
             echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
             docker push ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG}
+            docker rmi ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} || true
+
             docker push ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG}
+            docker rmi ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} || true
+
             docker push ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG}
+            docker rmi ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} || true
+
+            docker system prune -af
             docker logout
           '''
         }
