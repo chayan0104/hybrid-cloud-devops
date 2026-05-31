@@ -17,8 +17,8 @@ pipeline {
 
   parameters {
     booleanParam(name: 'START_BUILD', defaultValue: true, description: 'Build frontend, main app, and microservice')
-    booleanParam(name: 'RUN_DOCKER_SCANS', defaultValue: true, description: 'Run Trivy image and filesystem scans')
     booleanParam(name: 'RUN_CODE_SCANS', defaultValue: true, description: 'Run SonarQube, dependency audits, IaC scans, and gitleaks')
+    booleanParam(name: 'RUN_DOCKER_SCANS', defaultValue: true, description: 'Run Trivy image and filesystem scans')
     booleanParam(name: 'PUSH_ARTIFACTS', defaultValue: true, description: 'Push images and WAR to Docker Hub')
   }
 
