@@ -112,6 +112,7 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'sonar-token', variable: 'sonar-token')]) {
           sh '''
+          #!/bin/bash
             set -euo pipefail
             mkdir -p reports
 
@@ -137,6 +138,7 @@ pipeline {
       }
       steps {
         sh '''
+         #!/bin/bash
          set -euo pipefail
           mkdir -p reports
 
@@ -191,6 +193,7 @@ pipeline {
       }
       steps {
         sh '''
+          #!/bin/bash
           set -euo pipefail 
           mkdir -p reports
 
