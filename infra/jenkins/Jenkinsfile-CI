@@ -110,6 +110,7 @@ pipeline {
                     cd applications/monolith
                     mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
                       -Dsonar.projectKey=monolith \
+                      -Dsonar.sources=src/java \
                       -Dsonar.host.url=${SONAR_HOST_URL} \
                       -Dsonar.token=${SONAR_TOKEN} \
                       -Dsonar.sources=src | tee ../../reports/sonar-monolith.txt
