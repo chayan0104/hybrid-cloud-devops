@@ -6,7 +6,8 @@ pipeline {
     MICROSERVICE_IMAGE_REPO = "${IMAGE_REGISTRY}/microservice"
     MAIN_APP_IMAGE_REPO = "${IMAGE_REGISTRY}/monolith"
     FRONTEND_IMAGE_REPO = "${IMAGE_REGISTRY}/frontend-angular"
-    IMAGE_TAG = "${env.BUILD_NUMBER}"
+    //IMAGE_TAG = "${env.BUILD_NUMBER}"
+    IMAGE_TAG = "latest"
     JFROG_SERVER = ''
     JFROG_DOCKER_REPO = ''
     JFROG_GENERIC_REPO = ''
