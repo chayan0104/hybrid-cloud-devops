@@ -33,8 +33,7 @@ pipeline {
   stages {
     stage('Validate Toolchain') {
       steps {
-        sh '''
-          #!/usr/bin/env bash
+        sh(shell: '/bin/bash', script: '''
           set -euo pipefail
           java -version
           mvn -version
@@ -42,25 +41,22 @@ pipeline {
           node --version
           npm --version
           mkdir -p reports
-        '''
+        ''')
       }
     }
 
     stage('Build Applications') {
-      when {
-        expression { return params.START_BUILD }
-      }
+      when { expression { return params.START_BUILD } }
       parallel {
         stage('Build Frontend') {
           steps {
             dir('applications/frontend-angular') {
-              sh '''
-                #!/usr/bin/env bash
+              sh(shell: '/bin/bash', script: '''
                 set -euo pipefail
                 npm ci
                 npm run build
                 docker build -t ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} .
-              '''
+              ''')
             }
           }
         }
@@ -68,12 +64,11 @@ pipeline {
         stage('Build Monolith') {
           steps {
             dir('applications/monolith') {
-              sh '''
-                #!/usr/bin/env bash
+              sh(shell: '/bin/bash', script: '''
                 set -euo pipefail
                 mvn -B clean package -DskipTests
                 docker build -t ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} .
-              '''
+              ''')
             }
           }
         }
@@ -81,12 +76,11 @@ pipeline {
         stage('Build Microservice') {
           steps {
             dir('applications/microservice') {
-              sh '''
-                #!/usr/bin/env bash
+              sh(shell: '/bin/bash', script: '''
                 set -euo pipefail
                 mvn -B clean test package
                 docker build -t ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} .
-              '''
+              ''')
             }
           }
         }
@@ -96,15 +90,12 @@ pipeline {
     stage('Security Scans') {
       parallel {
         stage('Code Security Scans') {
-          when {
-            expression { return params.RUN_CODE_SCANS }
-          }
+          when { expression { return params.RUN_CODE_SCANS } }
           stages {
             stage('SonarQube Analysis') {
               steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                  sh '''
-                    #!/usr/bin/env bash
+                  sh(shell: '/bin/bash', script: '''
                     set -euo pipefail
 
                     cd applications/monolith
@@ -123,18 +114,15 @@ pipeline {
                       -Dsonar.login=${SONAR_TOKEN} \
                       -Dsonar.sources=src/main/java \
                       -Dsonar.tests=src/test/java 2>&1 | tee ../../reports/sonar-microservice.txt
-                  '''
+                  ''')
                 }
               }
             }
 
             stage('Dependency Audit') {
-              options {
-                timeout(time: 25, unit: 'MINUTES')
-              }
+              options { timeout(time: 25, unit: 'MINUTES') }
               steps {
-                sh '''
-                  #!/usr/bin/env bash
+                sh(shell: '/bin/bash', script: '''
                   set -euo pipefail
 
                   cd applications/frontend-angular
@@ -149,14 +137,13 @@ pipeline {
                   mvn -B org.owasp:dependency-check-maven:check \
                     -DdataDirectory=/var/jenkins_home/dependency-check-data \
                     -DfailBuildOnCVSS=7 2>&1 | tee ../../reports/dependency-check-microservice.txt
-                '''
+                ''')
               }
             }
 
             stage('IaC/Infra Code Scan') {
               steps {
-                sh '''
-                  #!/usr/bin/env bash
+                sh(shell: '/bin/bash', script: '''
                   set -euo pipefail
 
                   docker run --rm -v "$PWD":/workspace aquasec/tfsec:v1.28.5 \
@@ -173,17 +160,16 @@ pipeline {
 
                   docker run --rm -v "$PWD":/workspace bridgecrew/checkov:3.2.360 \
                     -d /workspace/infra/jenkins --quiet 2>&1 | tee reports/checkov_jenkins.txt || true
-                '''
+                ''')
               }
             }
 
             stage('Secrets Scan') {
               steps {
-                sh '''
-                  #!/usr/bin/env bash
+                sh(shell: '/bin/bash', script: '''
                   set -euo pipefail
                   
-
+                  # FIXED: correct output capture (old "->" was invalid)
                   docker run --rm -v "$PWD":/repo zricethezav/gitleaks:v8.21.2 \
                     detect --source=/repo --exit-code 0 2>&1 | tee reports/gitleaks.txt
                 '''
@@ -193,14 +179,11 @@ pipeline {
         }
 
         stage('Docker Image Scans') {
-          when {
-            expression { return params.RUN_DOCKER_SCANS && params.START_BUILD }
-          }
+          when { expression { return params.RUN_DOCKER_SCANS && params.START_BUILD } }
           stages {
             stage('Trivy Image Scans') {
               steps {
-                sh '''
-                  #!/usr/bin/env bash
+                sh(shell: '/bin/bash', script: '''
                   set -euo pipefail
 
                   docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
@@ -214,20 +197,19 @@ pipeline {
                   docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
                     aquasec/trivy:0.56.2 image --severity HIGH,CRITICAL --exit-code 0 \
                     ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} 2>&1 | tee reports/trivy-frontend-angular.txt
-                '''
+                ''')
               }
             }
 
             stage('Trivy Filesystem Scan') {
               steps {
-                sh '''
-                  #!/usr/bin/env bash
+                sh(shell: '/bin/bash', script: '''
                   set -euo pipefail
                   
 
                   docker run --rm -v "$PWD":/workspace aquasec/trivy:0.56.2 \
                     fs --severity HIGH,CRITICAL --exit-code 0 /workspace 2>&1 | tee reports/trivy-filesystem.txt
-                '''
+                ''')
               }
             }
           }
@@ -251,10 +233,10 @@ pipeline {
             passwordVariable: 'DOCKER_PASS'
           )
         ]) {
-          sh '''
-            #!/usr/bin/env bash
+          sh(shell: '/bin/bash', script: '''
             set -euo pipefail
             echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+
             docker push ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG}
             docker rmi ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} || true
 
@@ -266,7 +248,7 @@ pipeline {
 
             docker system prune -af
             docker logout
-          '''
+          ''')
         }
       }
     }
@@ -275,6 +257,9 @@ pipeline {
   post {
     always {
       script {
+        // Ensure the directory exists even if the build fails early
+        sh 'mkdir -p reports'
+
         writeFile file: 'reports/ci-summary.txt', text: """=====================================
   BUILD SUMMARY
 =====================================
