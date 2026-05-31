@@ -50,7 +50,20 @@ spec:
                   key: password
           readinessProbe:
             httpGet:
-              path: /actuator/health/readiness
+              path: /microservice/actuator/health/readiness
               port: 8081
             initialDelaySeconds: 10
             periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /microservice/actuator/health/liveness
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1024Mi

@@ -6,6 +6,7 @@ Start here if you are working in `infra/`.
 
 - Master guide: `INFRASTRUCTURE.md`
 - Full setup flow: `../docs/SETUP-AND-DEPLOYMENT-GUIDE.md`
+- Local UAT replication and RAM sizing: `../docs/UAT-LOCAL-REPLICATION-WSL.md`
 
 ## By area
 

@@ -1,8 +1,10 @@
 replicaCount: 2
 
 image:
-  repository: your-registry.io/microservice
+  repository: mechayan97/microservice
   tag: uat-latest
+
+dbSecretName: db-secrets
 
 env:
   APP_ENVIRONMENT: uat

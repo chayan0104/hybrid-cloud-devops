@@ -1,8 +1,10 @@
 replicaCount: 3
 
 image:
-  repository: your-registry.io/microservice
+  repository: mechayan97/microservice
   tag: prod-stable
+
+dbSecretName: db-secrets
 
 resources:
   requests:

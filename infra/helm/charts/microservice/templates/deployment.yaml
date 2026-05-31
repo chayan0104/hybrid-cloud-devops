@@ -21,15 +21,40 @@ spec:
           env:
             - name: APP_ENVIRONMENT
               value: {{ .Values.env.APP_ENVIRONMENT | quote }}
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dbSecretName | quote }}
+                  key: host
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dbSecretName | quote }}
+                  key: port
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dbSecretName | quote }}
+                  key: db
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dbSecretName | quote }}
+                  key: user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dbSecretName | quote }}
+                  key: password
           readinessProbe:
             httpGet:
-              path: /actuator/health/readiness
+              path: /microservice/actuator/health/readiness
               port: {{ .Values.service.targetPort }}
             initialDelaySeconds: 10
             periodSeconds: 5
           livenessProbe:
             httpGet:
-              path: /actuator/health/liveness
+              path: /microservice/actuator/health/liveness
               port: {{ .Values.service.targetPort }}
             initialDelaySeconds: 30
             periodSeconds: 10

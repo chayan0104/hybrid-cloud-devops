@@ -2,8 +2,9 @@ pipeline {
   agent any
 
   environment {
-    MICROSERVICE_IMAGE_REPO = 'your-registry.io/microservice'
-    FRONTEND_IMAGE_REPO = 'your-registry.io/frontend-angular'
+    IMAGE_REGISTRY = 'mechayan97'
+    MICROSERVICE_IMAGE_REPO = "${IMAGE_REGISTRY}/microservice"
+    FRONTEND_IMAGE_REPO = "${IMAGE_REGISTRY}/frontend-angular"
     PROD_TOMCAT_HOST = 'ubuntu@prod-tomcat.internal'
     PROD_MAIN_APP_HOST = 'ubuntu@prod-tomcat.internal'
     PROD_NAMESPACE = 'enterprise-prod'

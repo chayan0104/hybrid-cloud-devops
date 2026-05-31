@@ -10,6 +10,35 @@ This runbook replicates the UAT delivery model on a laptop using WSL2 Ubuntu, Je
 - Java 17+, Maven 3.9+, Node 20+, kubectl, kind, helm
 - JFrog account and credentials
 
+## 1A. Recommended Host Memory for Local UAT Replication
+
+For a smooth Windows 11 + WSL2 + Docker Desktop + Jenkins + SonarQube setup, plan for:
+
+- Windows 11 host: 2-3 GB
+- WSL2 Ubuntu: 2-3 GB
+  - Java: 0.5 GB
+  - Maven: 0.2 GB
+  - Node.js: 0.3 GB
+  - Docker daemon: 0.5 GB
+- Docker containers (shared):
+  - Jenkins: 1-2 GB
+  - SonarQube: 1-2 GB
+  - PostgreSQL: 0.5 GB
+  - Docker registry: 0.3 GB
+- Docker Desktop: 0.5 GB
+- VS Code: 0.5 GB
+- Chrome: 1-2 GB
+
+Estimated total:
+
+- 11-14 GB RAM
+- 2-3 GB headroom recommended
+
+Recommendation:
+
+- 16 GB RAM is a good baseline for this full local stack.
+- 8 GB RAM is likely to feel constrained once Jenkins, SonarQube, Docker containers, and Chrome are all active.
+
 ## 2. Prepare WSL toolchain
 
 ```bash

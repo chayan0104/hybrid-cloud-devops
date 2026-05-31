@@ -55,13 +55,13 @@ spec:
                   key: password
           readinessProbe:
             httpGet:
-              path: /actuator/health/readiness
+              path: /microservice/actuator/health/readiness
               port: 8081
             initialDelaySeconds: 10
             periodSeconds: 5
           livenessProbe:
             httpGet:
-              path: /actuator/health/liveness
+              path: /microservice/actuator/health/liveness
               port: 8081
             initialDelaySeconds: 30
             periodSeconds: 10

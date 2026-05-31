@@ -18,6 +18,14 @@ cd applications
 docker compose up -d --build
 ```
 
+If you also plan to run the full local CI/UAT toolchain on the same machine with WSL2, Docker Desktop, Jenkins, SonarQube, PostgreSQL, registry, VS Code, and Chrome:
+
+- Plan for 11-14 GB total RAM usage
+- Keep 2-3 GB RAM headroom available
+- 16 GB RAM is the recommended baseline
+
+Detailed sizing is documented in `UAT-LOCAL-REPLICATION-WSL.md`.
+
 Verify:
 
 ```bash

@@ -155,6 +155,12 @@ For WSL2 + local Jenkins + Docker scans + JFrog + UAT parity setup, use:
 
 - `docs/UAT-LOCAL-REPLICATION-WSL.md`
 
+Local resource guidance:
+
+- Plan for 11-14 GB RAM usage for the full Windows 11 + WSL2 + Docker Desktop + Jenkins + SonarQube local stack.
+- Keep 2-3 GB RAM headroom free for stable local execution.
+- A 16 GB machine is the recommended baseline for this setup.
+
 ## Jenkins reporting and email
 
 - CI reports: Trivy scan outputs and build summary under `reports/`
