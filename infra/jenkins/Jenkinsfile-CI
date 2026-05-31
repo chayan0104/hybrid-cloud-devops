@@ -33,7 +33,7 @@ pipeline {
     stage('Validate Toolchain') {
       steps {
         sh '''
-          #!/bin/bash
+          #!/bin/sh
           set -e
           java -version
           mvn -version
@@ -53,8 +53,8 @@ pipeline {
           steps {
             dir('applications/frontend-angular') {
               sh '''
-                #!/bin/bash
-                set -euo pipefail
+                #!/bin/sh
+                set -eu
                 npm ci
                 npm run build
                 docker build -t ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} .
@@ -67,8 +67,8 @@ pipeline {
           steps {
             dir('applications/monolith') {
               sh '''
-                #!/bin/bash
-                set -euo pipefail
+                #!/bin/sh
+                set -eu
                 mvn -B clean package -DskipTests
                 docker build -t ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} .
               '''
@@ -80,8 +80,8 @@ pipeline {
           steps {
             dir('applications/microservice') {
               sh '''
-                #!/bin/bash
-                set -euo pipefail
+                #!/bin/sh
+                set -eu
                 mvn -B clean test package
                 docker build -t ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} .
               '''
@@ -102,8 +102,8 @@ pipeline {
               steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                   sh '''
-                    #!/bin/bash
-                    set -euo pipefail
+                    #!/bin/sh
+                    set -eu
                     mkdir -p reports
 
                     cd applications/monolith
@@ -130,8 +130,8 @@ pipeline {
               }
               steps {
                 sh '''
-                  #!/bin/bash
-                  set -euo pipefail
+                  #!/bin/sh
+                  set -eu
                   mkdir -p reports
 
                   cd applications/frontend-angular
@@ -153,8 +153,8 @@ pipeline {
             stage('IaC Security Scan') {
               steps {
                 sh '''
-                  #!/bin/bash
-                  set -euo pipefail
+                  #!/bin/sh
+                  set -eu
                   mkdir -p reports
 
                   docker run --rm -v "$PWD":/workspace aquasec/tfsec:v1.28.5 \
@@ -169,8 +169,8 @@ pipeline {
             stage('Secrets Scan') {
               steps {
                 sh '''
-                  #!/bin/bash
-                  set -euo pipefail
+                  #!/bin/sh
+                  set -eu
                   mkdir -p reports
 
                   docker run --rm -v "$PWD":/repo zricethezav/gitleaks:v8.21.2 \
@@ -190,8 +190,8 @@ pipeline {
             stage('Trivy Image Scans') {
               steps {
                 sh '''
-                  #!/bin/bash
-                  set -euo pipefail
+                  #!/bin/sh
+                  set -eu
                   mkdir -p reports
 
                   docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
@@ -212,8 +212,8 @@ pipeline {
             stage('Trivy Filesystem Scan') {
               steps {
                 sh '''
-                  #!/bin/bash
-                  set -euo pipefail
+                  #!/bin/sh
+                  set -eu
                   mkdir -p reports
 
                   docker run --rm -v "$PWD":/workspace aquasec/trivy:0.56.2 \
@@ -243,8 +243,8 @@ pipeline {
           )
         ]) {
           sh '''
-            #!/bin/bash
-            set -euo pipefail
+            #!/bin/sh
+            set -eu
             echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
             docker push ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG}
             docker push ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG}
