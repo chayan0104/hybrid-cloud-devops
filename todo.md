@@ -25,3 +25,6 @@ Incomplete deployment verification — no post-deploy smoke tests or canary auto
 ✅ Suitable for: Startups, non-critical internal apps, early-stage DevOps teams
 ⚠️ Needs hardening for: Finance, healthcare, SOC 2 Type II compliance
 🚀 Priority fixes (2–3 days): Kubernetes securityContext, NetworkPolicy, PSS, Vault audit logging
+
+
+implement githubrepo or jfrog repo in ci pipeline
