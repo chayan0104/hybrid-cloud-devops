@@ -11,14 +11,14 @@ pipeline {
     JFROG_DOCKER_REPO = ''
     JFROG_GENERIC_REPO = ''
     VAULT_ADDR = 'https://vault.company.com:8200'
-    SONAR_HOST_URL = 'https://sonarqube.company.com'
+    SONAR_HOST_URL = "http://localhost:9000"
     EMAIL_TO = 'chayansamanta8@gmail.com'
   }
 
   parameters {
     booleanParam(name: 'RUN_DOCKER_SCANS', defaultValue: true, description: 'Run Trivy image and filesystem scans')
     booleanParam(name: 'RUN_CODE_SCANS', defaultValue: true, description: 'Run SonarQube, dependency audits, IaC scans, and gitleaks')
-    booleanParam(name: 'PUSH_ARTIFACTS', defaultValue: true, description: 'Push images and WAR to JFrog')
+    booleanParam(name: 'PUSH_ARTIFACTS', defaultValue: true, description: 'Push images and WAR to ${Env.IMAGE_REGISTRY} and JFrog (if configured)')
   }
 
   options {
@@ -96,7 +96,7 @@ pipeline {
         expression { return params.RUN_CODE_SCANS }
       }
       steps {
-        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+        withCredentials([string(credentialsId: 'sonar-token', variable: 'sonar-token')]) {
           sh '''
             set -euo pipefail
             mkdir -p reports
