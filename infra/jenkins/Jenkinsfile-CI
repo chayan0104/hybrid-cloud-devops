@@ -118,13 +118,13 @@ pipeline {
             mvn -B sonar:sonar \
               -Dsonar.projectKey=monolith \
               -Dsonar.host.url=${SONAR_HOST_URL} \
-              -Dsonar.login=${SONAR_TOKEN} | tee ../../reports/sonar-monolith.txt
+              -Dsonar.login=${sonar-token} | tee ../../reports/sonar-monolith.txt
 
             cd ../microservice
             mvn -B sonar:sonar \
               -Dsonar.projectKey=microservice \
               -Dsonar.host.url=${SONAR_HOST_URL} \
-              -Dsonar.login=${SONAR_TOKEN} | tee ../../reports/sonar-microservice.txt
+              -Dsonar.login=${sonar-token} | tee ../../reports/sonar-microservice.txt
           '''
         }
       }
