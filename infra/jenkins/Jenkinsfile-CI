@@ -110,7 +110,6 @@ pipeline {
                     cd applications/monolith
                     mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
                       -Dsonar.projectKey=monolith \
-                      -Dsonar.sources=src/java \
                       -Dsonar.host.url=${SONAR_HOST_URL} \
                       -Dsonar.token=${SONAR_TOKEN} \
                       -Dsonar.sources=src | tee ../../reports/sonar-monolith.txt
@@ -118,11 +117,10 @@ pipeline {
                     cd ../microservice
                     mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
                       -Dsonar.projectKey=microservice \
-                      -Dsonar.sources=src/main/java \
-                      -Dsonar.tests=src/test/java \
                       -Dsonar.host.url=${SONAR_HOST_URL} \
                       -Dsonar.token=${SONAR_TOKEN} \
-                      -Dsonar.sources=src | tee ../../reports/sonar-microservice.txt
+                      -Dsonar.sources=src/main/java \
+                      -Dsonar.tests=src/test/java  | tee ../../reports/sonar-microservice.txt
                   '''
                 }
               }
@@ -154,7 +152,7 @@ pipeline {
               }
             }
 
-            stage('IaC Security Scan') {
+            stage('IaC/Infra Code Scan') {
               steps {
                 sh '''
                   #!/bin/sh
@@ -165,7 +163,17 @@ pipeline {
                     /workspace/infra/terraform --format text | tee reports/tfsec.txt
 
                   docker run --rm -v "$PWD":/workspace bridgecrew/checkov:3.2.360 \
-                    -d /workspace/infra/terraform --quiet | tee reports/checkov.txt || true
+                    -d /workspace/infra/terraform --quiet | tee reports/checkov_tf.txt || true
+
+                  docker run --rm -v "$PWD":/workspace bridgecrew/checkov:3.2.360 \
+                    -d /workspace/infra/kubernetes --quiet | tee reports/checkov_k8s.txt || true
+
+                  docker run --rm -v "$PWD":/workspace bridgecrew/checkov:3.2.360 \
+                    -d /workspace/infra/helm --quiet | tee reports/checkov_helm.txt || true
+
+                  docker run --rm -v "$PWD":/workspace bridgecrew/checkov:3.2.360 \
+                    -d /workspace/infra/jenkins --quiet | tee reports/checkov_jenkins.txt || true
+
                 '''
               }
             }
