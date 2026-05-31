@@ -36,31 +36,31 @@ pipeline {
       }
     }
 
-    stage('Load Shared Secrets from Vault') {
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'vault-approle', usernameVariable: 'ROLE_ID', passwordVariable: 'SECRET_ID')]) {
-          script {
-            env.VAULT_TOKEN = sh(
-              script: 'vault write -field=client_token auth/approle/login role_id=${ROLE_ID} secret_id=${SECRET_ID}',
-              returnStdout: true
-            ).trim()
+    // stage('Load Shared Secrets from Vault') {
+    //   steps {
+    //     withCredentials([usernamePassword(credentialsId: 'vault-approle', usernameVariable: 'ROLE_ID', passwordVariable: 'SECRET_ID')]) {
+    //       script {
+    //         env.VAULT_TOKEN = sh(
+    //           script: 'vault write -field=client_token auth/approle/login role_id=${ROLE_ID} secret_id=${SECRET_ID}',
+    //           returnStdout: true
+    //         ).trim()
 
-            env.JFROG_SERVER = sh(
-              script: 'VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=url secret/shared/jfrog',
-              returnStdout: true
-            ).trim()
-            env.JFROG_DOCKER_REPO = sh(
-              script: 'VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=docker_repo secret/shared/jfrog',
-              returnStdout: true
-            ).trim()
-            env.JFROG_GENERIC_REPO = sh(
-              script: 'VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=generic_repo secret/shared/jfrog',
-              returnStdout: true
-            ).trim()
-          }
-        }
-      }
-    }
+    //         env.JFROG_SERVER = sh(
+    //           script: 'VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=url secret/shared/jfrog',
+    //           returnStdout: true
+    //         ).trim()
+    //         env.JFROG_DOCKER_REPO = sh(
+    //           script: 'VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=docker_repo secret/shared/jfrog',
+    //           returnStdout: true
+    //         ).trim()
+    //         env.JFROG_GENERIC_REPO = sh(
+    //           script: 'VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=generic_repo secret/shared/jfrog',
+    //           returnStdout: true
+    //         ).trim()
+    //       }
+    //     }
+    //   }
+    // }
 
     stage('Build Frontend Angular Container') {
       steps {
