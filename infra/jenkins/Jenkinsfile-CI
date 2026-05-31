@@ -2,16 +2,17 @@ pipeline {
   agent any
 
   environment {
-    MICROSERVICE_IMAGE_REPO = "your-registry.io/microservice"
-    MAIN_APP_IMAGE_REPO = "your-registry.io/monolith"
-    FRONTEND_IMAGE_REPO = "your-registry.io/frontend-angular"
+    IMAGE_REGISTRY = "mechayan97"
+    MICROSERVICE_IMAGE_REPO = "${IMAGE_REGISTRY}/microservice"
+    MAIN_APP_IMAGE_REPO = "${IMAGE_REGISTRY}/monolith"
+    FRONTEND_IMAGE_REPO = "${IMAGE_REGISTRY}/frontend-angular"
     IMAGE_TAG = "${env.BUILD_NUMBER}"
     JFROG_SERVER = ""
     JFROG_DOCKER_REPO = ""
     JFROG_GENERIC_REPO = ""
     VAULT_ADDR = "https://vault.company.com:8200"
     SONAR_HOST_URL = "https://sonarqube.company.com"
-    EMAIL_TO = "devops-team@example.com"
+    EMAIL_TO = "chayansamanta8@gmail.com"
   }
 
   parameters {
