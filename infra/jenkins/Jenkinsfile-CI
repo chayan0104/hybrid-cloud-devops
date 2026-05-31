@@ -2,17 +2,17 @@ pipeline {
   agent any
 
   environment {
-    IMAGE_REGISTRY = "mechayan97"
+    IMAGE_REGISTRY = 'mechayan97'
     MICROSERVICE_IMAGE_REPO = "${IMAGE_REGISTRY}/microservice"
     MAIN_APP_IMAGE_REPO = "${IMAGE_REGISTRY}/monolith"
     FRONTEND_IMAGE_REPO = "${IMAGE_REGISTRY}/frontend-angular"
     IMAGE_TAG = "${env.BUILD_NUMBER}"
-    JFROG_SERVER = ""
-    JFROG_DOCKER_REPO = ""
-    JFROG_GENERIC_REPO = ""
-    VAULT_ADDR = "https://vault.company.com:8200"
-    SONAR_HOST_URL = "https://sonarqube.company.com"
-    EMAIL_TO = "chayansamanta8@gmail.com"
+    JFROG_SERVER = ''
+    JFROG_DOCKER_REPO = ''
+    JFROG_GENERIC_REPO = ''
+    VAULT_ADDR = 'https://vault.company.com:8200'
+    SONAR_HOST_URL = 'https://sonarqube.company.com'
+    EMAIL_TO = 'chayansamanta8@gmail.com'
   }
 
   parameters {
@@ -194,35 +194,60 @@ pipeline {
       }
     }
 
-    stage('Publish to JFrog') {
-      when {
-        allOf {
-          expression { return params.PUSH_ARTIFACTS }
-          expression { return env.CHANGE_ID == null }
-        }
-      }
-      steps {
-        sh '''
-          JFROG_USER=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=username secret/shared/jfrog)
-          JFROG_PASSWORD=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=password secret/shared/jfrog)
+  //   stage('Publish to JFrog') {
+  //     when {
+  //       allOf {
+  //         expression { return params.PUSH_ARTIFACTS }
+  //         expression { return env.CHANGE_ID == null }
+  //       }
+  //     }
+  //     steps {
+  //       sh '''
+  //         JFROG_USER=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=username secret/shared/jfrog)
+  //         JFROG_PASSWORD=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=password secret/shared/jfrog)
 
-          docker login ${JFROG_SERVER#https://} -u ${JFROG_USER} -p ${JFROG_PASSWORD}
+  //         docker login ${JFROG_SERVER#https://} -u ${JFROG_USER} -p ${JFROG_PASSWORD}
 
-          docker tag ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/microservice:${IMAGE_TAG}
-          docker tag ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/monolith:${IMAGE_TAG}
-          docker tag ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/frontend-angular:${IMAGE_TAG}
+  //         docker tag ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/microservice:${IMAGE_TAG}
+  //         docker tag ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/monolith:${IMAGE_TAG}
+  //         docker tag ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/frontend-angular:${IMAGE_TAG}
 
-          docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/microservice:${IMAGE_TAG}
-          docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/monolith:${IMAGE_TAG}
-          docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/frontend-angular:${IMAGE_TAG}
+  //         docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/microservice:${IMAGE_TAG}
+  //         docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/monolith:${IMAGE_TAG}
+  //         docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/frontend-angular:${IMAGE_TAG}
 
-          curl -u ${JFROG_USER}:${JFROG_PASSWORD} -T applications/monolith/target/monolith.war \
-            ${JFROG_SERVER}/artifactory/${JFROG_GENERIC_REPO}/monolith/monolith-${IMAGE_TAG}.war
-        '''
-      }
-    }
+    //         curl -u ${JFROG_USER}:${JFROG_PASSWORD} -T applications/monolith/target/monolith.war \
+    //           ${JFROG_SERVER}/artifactory/${JFROG_GENERIC_REPO}/monolith/monolith-${IMAGE_TAG}.war
+    //       '''
+    //     }
+    //   }
+       stage('Publish Images') {
+         when {
+           allOf {
+             expression { return params.PUSH_ARTIFACTS }
+             expression { return env.CHANGE_ID == null }
+           }
+         }
+   
+         steps {
+           withCredentials([
+         usernamePassword(
+           credentialsId: 'dockerhub-creds',
+           usernameVariable: 'DOCKER_USER',
+           passwordVariable: 'DOCKER_PASS'
+         )
+       ]) {
+             sh '''
+           echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+   
+           docker push ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG}
+           docker push ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG}
+           docker push ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG}
+         '''
+       }
+         }
+       }
   }
-
   post {
     always {
       script {
