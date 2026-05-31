@@ -191,7 +191,8 @@ pipeline {
               }
             }
 
-            stage('Dependency Audit') {
+            stage('Dependency Audit OWASP/NPM') {
+              timeout(time: 5, unit: 'MINUTES') {
               steps {
                 sh '''
                   #!/bin/bash
@@ -204,11 +205,11 @@ pipeline {
 
                   echo "📦 Running OWASP Dependency Check for Monolith..."
                   cd ../monolith
-                  mvn -B org.owasp:dependency-check-maven:check 2>&1 | grep -E "(HIGH|CRITICAL|Building|Analysis)" | tail -20 || true
+                  mvn -B org.owasp:dependency-check-maven:check 2>&1 | grep -E "(HIGH|CRITICAL)" | tail -20 || true
 
                   echo "📦 Running OWASP Dependency Check for Microservice..."
                   cd ../microservice
-                  mvn -B org.owasp:dependency-check-maven:check 2>&1 | grep -E "(HIGH|CRITICAL|Building|Analysis)" | tail -20 || true
+                  mvn -B org.owasp:dependency-check-maven:check 2>&1 | grep -E "(HIGH|CRITICAL)" | tail -20 || true
                   
                   echo "✓ Dependency audit complete"
                 '''
