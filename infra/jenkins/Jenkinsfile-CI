@@ -6,28 +6,20 @@ pipeline {
     MICROSERVICE_IMAGE_REPO = "${IMAGE_REGISTRY}/microservice"
     MAIN_APP_IMAGE_REPO = "${IMAGE_REGISTRY}/monolith"
     FRONTEND_IMAGE_REPO = "${IMAGE_REGISTRY}/frontend-angular"
-    //IMAGE_TAG = "${env.BUILD_NUMBER}"
-    IMAGE_TAG = "latest"
+    IMAGE_TAG = "${env.BUILD_NUMBER}"
     JFROG_SERVER = ''
     JFROG_DOCKER_REPO = ''
     JFROG_GENERIC_REPO = ''
     VAULT_ADDR = 'https://vault.company.com:8200'
-    SONAR_HOST_URL = "http://localhost:9000"
+    SONAR_HOST_URL = 'http://localhost:9000'
     EMAIL_TO = 'chayansamanta8@gmail.com'
   }
 
   parameters {
-    booleanParam(name: 'START_BUILD', defaultValue: true,
-    description: 'Build frontend, main app, and microservice')
-
-    booleanParam(name: 'RUN_DOCKER_SCANS', defaultValue: true, 
-    description: 'Run Trivy image and filesystem scans')
-
-    booleanParam(name: 'RUN_CODE_SCANS', defaultValue: true, 
-    description: 'Run SonarQube, dependency audits, IaC scans, and gitleaks')
-
-    booleanParam(name: 'PUSH_ARTIFACTS', defaultValue: true, 
-    description: 'Push images and WAR to ${env.IMAGE_REGISTRY} and JFrog (if configured)')
+    booleanParam(name: 'START_BUILD', defaultValue: true, description: 'Build frontend, main app, and microservice')
+    booleanParam(name: 'RUN_DOCKER_SCANS', defaultValue: true, description: 'Run Trivy image and filesystem scans')
+    booleanParam(name: 'RUN_CODE_SCANS', defaultValue: true, description: 'Run SonarQube, dependency audits, IaC scans, and gitleaks')
+    booleanParam(name: 'PUSH_ARTIFACTS', defaultValue: true, description: 'Push images and WAR to Docker Hub')
   }
 
   options {
@@ -42,40 +34,15 @@ pipeline {
       steps {
         sh '''
           #!/bin/bash
-          echo "=== Java Version ===" && java -version
-          echo "=== Maven Version ===" && mvn -version
-          echo "=== Docker Version ===" && docker version
-          echo "=== Node Version ===" && node --version    
-          echo "=== NPM Version ===" && npm --version
+          set -e
+          java -version
+          mvn -version
+          docker version
+          node --version
+          npm --version
         '''
       }
     }
-
-    // stage('Load Shared Secrets from Vault') {
-    //   steps {
-    //     withCredentials([usernamePassword(credentialsId: 'vault-approle', usernameVariable: 'ROLE_ID', passwordVariable: 'SECRET_ID')]) {
-    //       script {
-    //         env.VAULT_TOKEN = sh(
-    //           script: 'vault write -field=client_token auth/approle/login role_id=${ROLE_ID} secret_id=${SECRET_ID}',
-    //           returnStdout: true
-    //         ).trim()
-    //
-    //         env.JFROG_SERVER = sh(
-    //           script: 'VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=url secret/shared/jfrog',
-    //           returnStdout: true
-    //         ).trim()
-    //         env.JFROG_DOCKER_REPO = sh(
-    //           script: 'VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=docker_repo secret/shared/jfrog',
-    //           returnStdout: true
-    //         ).trim()
-    //         env.JFROG_GENERIC_REPO = sh(
-    //           script: 'VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=generic_repo secret/shared/jfrog',
-    //           returnStdout: true
-    //         ).trim()
-    //       }
-    //     }
-    //   }
-    // }
 
     stage('Build Applications') {
       when {
@@ -84,70 +51,40 @@ pipeline {
       parallel {
         stage('Build Angular') {
           steps {
-            script {
-              try {
             dir('applications/frontend-angular') {
-                  sh '''
-                    #!/bin/bash
-                    set -e
-                    echo "📱 Building Angular Frontend..."
-                    npm install --legacy-peer-deps
-                    npm run build
-                    echo "🐳 Building Docker image for Frontend..."
-                    docker build -t ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} .
-                    echo "✓ Frontend build complete"
-                  '''
-                }
-              } catch (Exception e) {
-                echo "❌ Angular build failed: ${e.message}"
-                error("Angular build failed")
-              }
+              sh '''
+                #!/bin/bash
+                set -euo pipefail
+                npm ci
+                npm run build
+                docker build -t ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} .
+              '''
             }
           }
         }
 
         stage('Build Monolith') {
           steps {
-            script {
-              try {
             dir('applications/monolith') {
-                  sh '''
-                    #!/bin/bash
-                    set -e
-                    echo "🏗️  Building Monolith..."
-                    mvn -B clean package -DskipTests
-                    echo "🐳 Building Docker image for Monolith..."
-                    docker build -t ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} .
-                    echo "✓ Monolith build complete"
-                  '''
-                }
-              } catch (Exception e) {
-                echo "❌ Monolith build failed: ${e.message}"
-                error("Monolith build failed")
-              }
+              sh '''
+                #!/bin/bash
+                set -euo pipefail
+                mvn -B clean package -DskipTests
+                docker build -t ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} .
+              '''
             }
           }
         }
 
         stage('Build Microservice') {
           steps {
-            script {
-              try {
             dir('applications/microservice') {
-                  sh '''
-                    #!/bin/bash
-                    set -e
-                    echo "🔧 Building Microservice..."
-                    mvn -B clean test package
-                    echo "🐳 Building Docker image for Microservice..."
-                    docker build -t ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} .
-                    echo "✓ Microservice build complete"
-                  '''
-                }
-              } catch (Exception e) {
-                echo "❌ Microservice build failed: ${e.message}"
-                error("Microservice build failed")
-              }
+              sh '''
+                #!/bin/bash
+                set -euo pipefail
+                mvn -B clean test package
+                docker build -t ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} .
+              '''
             }
           }
         }
@@ -163,99 +100,82 @@ pipeline {
           stages {
             stage('SonarQube Analysis') {
               steps {
-                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
                   sh '''
                     #!/bin/bash
-                    set -e
+                    set -euo pipefail
                     mkdir -p reports
 
-                    echo "🔍 Running SonarQube Analysis on Monolith..."
                     cd applications/monolith
-                    mvn -B sonar:sonar \
+                    mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
                       -Dsonar.projectKey=monolith \
                       -Dsonar.host.url=${SONAR_HOST_URL} \
-                      -Dsonar.login=${SONAR_TOKEN} \
-                      -Dsonar.sources=src 2>&1 | tail -30 || true
+                      -Dsonar.token=${SONAR_TOKEN} \
+                      -Dsonar.sources=src | tee ../../reports/sonar-monolith.txt
 
-                    echo "🔍 Running SonarQube Analysis on Microservice..."
                     cd ../microservice
-                    mvn -B sonar:sonar \
+                    mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
                       -Dsonar.projectKey=microservice \
                       -Dsonar.host.url=${SONAR_HOST_URL} \
-                      -Dsonar.login=${SONAR_TOKEN} \
-                      -Dsonar.sources=src 2>&1 | tail -30 || true
-                    
-                    echo "✓ SonarQube analysis complete"
+                      -Dsonar.token=${SONAR_TOKEN} \
+                      -Dsonar.sources=src | tee ../../reports/sonar-microservice.txt
                   '''
                 }
               }
             }
 
-            stage('Dependency Audit OWASP/NPM') {
-              timeout(time: 5, unit: 'MINUTES') {
+            stage('Dependency Audit') {
+              options {
+                timeout(time: 25, unit: 'MINUTES')
+              }
               steps {
                 sh '''
                   #!/bin/bash
-                  set +e
+                  set -euo pipefail
                   mkdir -p reports
 
-                  echo "📦 Running NPM Audit for Frontend..."
                   cd applications/frontend-angular
-                  npm audit --audit-level=moderate 2>&1 | tee ../../reports/npm-audit-frontend.txt || true
+                  npm audit --omit=dev --audit-level=moderate 2>&1 | tee ../../reports/npm-audit-frontend.txt || true
 
-                  echo "📦 Running OWASP Dependency Check for Monolith..."
                   cd ../monolith
-                  mvn -B org.owasp:dependency-check-maven:check 2>&1 | grep -E "(HIGH|CRITICAL)" | tail -20 || true
+                  mvn -B org.owasp:dependency-check-maven:check \
+                    -DdataDirectory=/var/jenkins_home/dependency-check-data \
+                    -DfailBuildOnCVSS=7 | tee ../../reports/dependency-check-monolith.txt
 
-                  echo "📦 Running OWASP Dependency Check for Microservice..."
                   cd ../microservice
-                  mvn -B org.owasp:dependency-check-maven:check 2>&1 | grep -E "(HIGH|CRITICAL)" | tail -20 || true
-                  
-                  echo "✓ Dependency audit complete"
+                  mvn -B org.owasp:dependency-check-maven:check \
+                    -DdataDirectory=/var/jenkins_home/dependency-check-data \
+                    -DfailBuildOnCVSS=7 | tee ../../reports/dependency-check-microservice.txt
                 '''
               }
             }
 
-            stage('IaC Security Scan (tfsec/checkov)') {
+            stage('IaC Security Scan') {
               steps {
                 sh '''
                   #!/bin/bash
-                  set +e
+                  set -euo pipefail
                   mkdir -p reports
 
-                  echo "🔐 Running tfsec for Infrastructure as Code..."
-                  if [ -d "infra/terraform" ]; then
                   docker run --rm -v "$PWD":/workspace aquasec/tfsec:v1.28.5 \
-                    /workspace/infra/terraform --format text | tee reports/tfsec.txt || true
-                  else
-                    echo "⚠️  No terraform directory found (skipping tfsec)"
-                  fi
+                    /workspace/infra/terraform --format text | tee reports/tfsec.txt
 
-                  echo "🔐 Running Checkov for Infrastructure as Code..."
-                  if [ -d "infra/terraform" ]; then
                   docker run --rm -v "$PWD":/workspace bridgecrew/checkov:3.2.360 \
-                      -d /workspace/infra/terraform --quiet 2>&1 | tail -20 || true
-                  else
-                    echo "⚠️  No terraform directory found (skipping checkov)"
-                  fi
-                  
-                  echo "✓ IaC security scan complete"
+                    -d /workspace/infra/terraform --quiet | tee reports/checkov.txt || true
                 '''
               }
             }
 
-            stage('Secrets Scan (gitleaks)') {
+            stage('Secrets Scan') {
               steps {
                 sh '''
                   #!/bin/bash
-                  set +e
+                  set -euo pipefail
                   mkdir -p reports
 
-                  echo "🔒 Running Gitleaks for Secret Detection..."
                   docker run --rm -v "$PWD":/repo zricethezav/gitleaks:v8.21.2 \
-                    detect --source=/repo --exit-code 0 2>&1 | tail -20 || true
-                  
-                  echo "✓ Secrets scan complete"
+                    detect --source=/repo --exit-code 0 --report-format sarif \
+                    --report-path=/repo/reports/gitleaks.sarif
                 '''
               }
             }
@@ -264,32 +184,27 @@ pipeline {
 
         stage('Docker Image Scans') {
           when {
-            expression { return params.RUN_DOCKER_SCANS }
+            expression { return params.RUN_DOCKER_SCANS && params.START_BUILD }
           }
           stages {
             stage('Trivy Image Scans') {
-              when {
-                expression { return params.START_BUILD }
-              }
               steps {
                 sh '''
                   #!/bin/bash
-                  set +e
+                  set -euo pipefail
                   mkdir -p reports
 
-                  echo "🐳 Running Trivy scan on Microservice Image..."
                   docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-                    aquasec/trivy:0.56.2 image --severity HIGH,CRITICAL --exit-code 0 ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} 2>&1 | tail -30 || true
+                    aquasec/trivy:0.56.2 image --severity HIGH,CRITICAL --exit-code 0 \
+                    ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} | tee reports/trivy-microservice.txt
 
-                  echo "🐳 Running Trivy scan on Monolith Image..."
                   docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-                    aquasec/trivy:0.56.2 image --severity HIGH,CRITICAL --exit-code 0 ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} 2>&1 | tail -30 || true
+                    aquasec/trivy:0.56.2 image --severity HIGH,CRITICAL --exit-code 0 \
+                    ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} | tee reports/trivy-monolith.txt
 
-                  echo "🐳 Running Trivy scan on Frontend Image..."
                   docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-                    aquasec/trivy:0.56.2 image --severity HIGH,CRITICAL --exit-code 0 ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} 2>&1 | tail -30 || true
-                  
-                  echo "✓ Trivy image scans complete"
+                    aquasec/trivy:0.56.2 image --severity HIGH,CRITICAL --exit-code 0 \
+                    ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} | tee reports/trivy-frontend-angular.txt
                 '''
               }
             }
@@ -298,14 +213,11 @@ pipeline {
               steps {
                 sh '''
                   #!/bin/bash
-                  set +e
+                  set -euo pipefail
                   mkdir -p reports
 
-                  echo "📂 Running Trivy Filesystem Scan..."
                   docker run --rm -v "$PWD":/workspace aquasec/trivy:0.56.2 \
-                    fs --severity HIGH,CRITICAL --exit-code 0 /workspace 2>&1 | tail -30 || true
-                  
-                  echo "✓ Trivy filesystem scan complete"
+                    fs --severity HIGH,CRITICAL --exit-code 0 /workspace | tee reports/trivy-filesystem.txt
                 '''
               }
             }
@@ -314,69 +226,30 @@ pipeline {
       }
     }
 
-    //   stage('Publish to JFrog') {
-    //     when {
-    //       allOf {
-    //         expression { return params.PUSH_ARTIFACTS }
-    //         expression { return env.CHANGE_ID == null }
-    //       }
-    //     }
-    //     steps {
-    //       sh '''
-    //         JFROG_USER=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=username secret/shared/jfrog)
-    //         JFROG_PASSWORD=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=password secret/shared/jfrog)
-    //
-    //         docker login ${JFROG_SERVER#https://} -u ${JFROG_USER} -p ${JFROG_PASSWORD}
-    //
-    //         docker tag ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/microservice:${IMAGE_TAG}
-    //         docker tag ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/monolith:${IMAGE_TAG}
-    //         docker tag ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG} ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/frontend-angular:${IMAGE_TAG}
-    //
-    //         docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/microservice:${IMAGE_TAG}
-    //         docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/monolith:${IMAGE_TAG}
-    //         docker push ${JFROG_SERVER#https://}/${JFROG_DOCKER_REPO}/frontend-angular:${IMAGE_TAG}
-    //
-    //         curl -u ${JFROG_USER}:${JFROG_PASSWORD} -T applications/monolith/target/monolith.war \
-    //           ${JFROG_SERVER}/artifactory/${JFROG_GENERIC_REPO}/monolith/monolith-${IMAGE_TAG}.war
-    //       '''
-    //     }
-    //   }
-
     stage('Publish Images') {
       when {
         allOf {
           expression { return params.PUSH_ARTIFACTS }
           expression { return env.CHANGE_ID == null }
+          expression { return params.START_BUILD }
         }
       }
       steps {
         withCredentials([
           usernamePassword(
-            credentialsId: 'docker',
-            usernameVariable: 'docker',
+            credentialsId: 'dockerhub-creds',
+            usernameVariable: 'DOCKER_USER',
             passwordVariable: 'DOCKER_PASS'
           )
         ]) {
           sh '''
             #!/bin/bash
-            set -e
-            
-            echo "🔐 Logging into Docker Hub..."
+            set -euo pipefail
             echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-
-            echo "🐳 Pushing Microservice image..."
             docker push ${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG}
-
-            echo "🐳 Pushing Monolith image..."
             docker push ${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG}
-
-            echo "🐳 Pushing Frontend image..."
             docker push ${FRONTEND_IMAGE_REPO}:${IMAGE_TAG}
-            
-            echo "🔑 Logging out from Docker Hub..."
             docker logout
-            
-            echo "✓ All images published successfully"
           '''
         }
       }
@@ -386,102 +259,38 @@ pipeline {
   post {
     always {
       script {
-        sh '''
-          #!/bin/bash
-          mkdir -p reports
-          
-          cat > reports/ci-summary.txt <<EOF
-=====================================
+        writeFile file: 'reports/ci-summary.txt', text: """=====================================
   BUILD SUMMARY
 =====================================
-Build Number: ${BUILD_NUMBER}
-Job Name: ${JOB_NAME}
-Build Status: ${CURRENT_BUILD_RESULT}
-Build URL: ${BUILD_URL}
-Timestamp: $(date)
-Branch: $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "N/A")
-Commit: $(git rev-parse --short HEAD 2>/dev/null || echo "N/A")
+Build Number: ${env.BUILD_NUMBER}
+Job Name: ${env.JOB_NAME}
+Build Status: ${currentBuild.currentResult ?: 'SUCCESS'}
+Build URL: ${env.BUILD_URL}
+Timestamp: ${new Date().toString()}
+Branch: ${env.BRANCH_NAME ?: 'HEAD'}
+Commit: ${env.GIT_COMMIT ?: 'N/A'}
 =====================================
-EOF
-          cat reports/ci-summary.txt
-        '''
+"""
       }
-      
-      archiveArtifacts artifacts: 'applications/monolith/target/*.war', 
-                       fingerprint: true, 
-                       allowEmptyArchive: true
-      
-      archiveArtifacts artifacts: 'applications/frontend-angular/dist/**', 
-                       allowEmptyArchive: true
-      
-      archiveArtifacts artifacts: 'reports/**', 
-                       allowEmptyArchive: true
-      
-      junit testResults: 'applications/**/target/surefire-reports/*.xml', 
-            allowEmptyResults: true
-      
+
+      archiveArtifacts artifacts: 'applications/monolith/target/*.war', fingerprint: true, allowEmptyArchive: true
+      archiveArtifacts artifacts: 'applications/frontend-angular/dist/**', allowEmptyArchive: true
+      archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
+      junit testResults: 'applications/**/target/surefire-reports/*.xml', allowEmptyResults: true
+
       emailext(
         to: "${EMAIL_TO}",
-        subject: "[Jenkins] ${currentBuild.currentResult} - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+        subject: "[CI] ${currentBuild.currentResult} - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
         mimeType: 'text/html',
         body: """
-          <h2>🏗️ Jenkins Build Report</h2>
-          <table border="1" cellpadding="10" style="border-collapse:collapse;">
-            <tr style="background-color:#f2f2f2;">
-              <td><b>Job Name:</b></td>
-              <td>${env.JOB_NAME}</td>
-            </tr>
-            <tr>
-              <td><b>Build Number:</b></td>
-              <td>#${env.BUILD_NUMBER}</td>
-            </tr>
-            <tr style="background-color:#f2f2f2;">
-              <td><b>Status:</b></td>
-              <td><font color="${currentBuild.currentResult == 'SUCCESS' ? 'green' : 'red'}"><b>${currentBuild.currentResult}</b></font></td>
-            </tr>
-            <tr>
-              <td><b>Duration:</b></td>
-              <td>${currentBuild.durationString}</td>
-            </tr>
-            <tr style="background-color:#f2f2f2;">
-              <td><b>Build URL:</b></td>
-              <td><a href="${env.BUILD_URL}">Click Here</a></td>
-            </tr>
-          </table>
-          <hr>
-          <h3>📊 Scans Executed:</h3>
-          <ul>
-            <li>✓ Build & Compilation</li>
-            <li>✓ SonarQube Code Quality Analysis</li>
-            <li>✓ Dependency Audit (NPM, Maven)</li>
-            <li>✓ Infrastructure as Code Security (tfsec, Checkov)</li>
-            <li>✓ Secret Detection (Gitleaks)</li>
-            <li>✓ Docker Image Scanning (Trivy)</li>
-            <li>✓ Filesystem Security Scanning (Trivy)</li>
-          </ul>
-          <hr>
-          <h3>📂 Artifacts:</h3>
-          <ul>
-            <li>📄 Build Logs</li>
-            <li>📊 Security Reports</li>
-            <li>🐳 Docker Images (if built)</li>
-          </ul>
+          <p><b>Pipeline:</b> ${env.JOB_NAME}</p>
+          <p><b>Build:</b> #${env.BUILD_NUMBER}</p>
+          <p><b>Status:</b> ${currentBuild.currentResult}</p>
+          <p><a href='${env.BUILD_URL}'>Open Build</a></p>
         """,
         attachmentsPattern: 'reports/**',
         attachLog: true
       )
     }
-
-    success {
-      echo "✅ Pipeline completed successfully!"
-    }
-
-    failure {
-      echo "❌ Pipeline failed! Check logs and reports above."
-    }
-
-    unstable {
-      echo "⚠️  Pipeline unstable - some scans may have issues"
   }
-}
 }

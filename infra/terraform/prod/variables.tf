@@ -45,6 +45,14 @@ variable "eks_node_role_arn" {
   type = string
 }
 
+variable "acm_certificate_arn" {
+  type = string
+}
+
+variable "eks_kms_key_arn" {
+  type = string
+}
+
 variable "db_password" {
   type      = string
   sensitive = true

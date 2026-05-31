@@ -5,6 +5,16 @@ resource "aws_instance" "tomcat" {
   vpc_security_group_ids = [var.security_group_id]
   key_name               = var.key_name
 
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+  }
+
+  root_block_device {
+    encrypted   = true
+    volume_type = "gp3"
+  }
+
   user_data = <<-EOF
               #!/bin/bash
               set -eux

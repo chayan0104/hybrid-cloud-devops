@@ -17,6 +17,7 @@ module "security" {
 
   name_prefix = local.name_prefix
   vpc_id      = module.network.vpc_id
+  vpc_cidr    = var.vpc_cidr
 }
 
 module "tomcat" {
@@ -38,6 +39,7 @@ module "alb" {
   public_subnet_ids         = module.network.public_subnet_ids
   alb_security_group_id     = module.security.alb_sg_id
   tomcat_target_instance_id = module.tomcat.instance_id
+  acm_certificate_arn       = var.acm_certificate_arn
 }
 
 module "eks" {
@@ -48,6 +50,7 @@ module "eks" {
   cluster_security_group_id = module.security.eks_sg_id
   cluster_role_arn        = var.eks_cluster_role_arn
   node_role_arn           = var.eks_node_role_arn
+  kms_key_arn             = var.eks_kms_key_arn
 }
 
 module "rds" {
