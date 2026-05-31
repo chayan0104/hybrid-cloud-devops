@@ -175,8 +175,7 @@ pipeline {
                   mkdir -p reports
 
                   docker run --rm -v "$PWD":/repo zricethezav/gitleaks:v8.21.2 \
-                    detect --source=/repo --exit-code 0 --report-format sarif \
-                    --report-path=/repo/reports/gitleaks.sarif
+                    detect --source=/repo --exit-code 0 -> reports/gitleaks.txt 2>&1
                 '''
               }
             }
