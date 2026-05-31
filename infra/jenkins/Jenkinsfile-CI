@@ -75,7 +75,7 @@ pipeline {
         expression { return params.START_BUILD }
       }
       parallel {
-         stage('Build Frontend Angular Container') {
+         stage('Build Angular ') {
             steps {
               dir('applications/frontend-angular') {
                 sh 'npm install'
@@ -85,7 +85,7 @@ pipeline {
             }
           }
 
-          stage('Build Main App') {
+          stage('Build Monolith') {
             steps {
               dir('applications/monolith') {
                 sh 'mvn -B clean package'
