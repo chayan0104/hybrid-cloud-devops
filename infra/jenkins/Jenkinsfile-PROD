@@ -4,147 +4,58 @@ pipeline {
   environment {
     IMAGE_REGISTRY = 'mechayan97'
     MICROSERVICE_IMAGE_REPO = "${IMAGE_REGISTRY}/microservice"
+    MAIN_APP_IMAGE_REPO = "${IMAGE_REGISTRY}/monolith"
     FRONTEND_IMAGE_REPO = "${IMAGE_REGISTRY}/frontend-angular"
-    PROD_TOMCAT_HOST = 'ubuntu@prod-tomcat.internal'
-    PROD_MAIN_APP_HOST = 'ubuntu@prod-tomcat.internal'
     PROD_NAMESPACE = 'enterprise-prod'
-    VAULT_ADDR = 'https://vault.company.com:8200'
-    EMAIL_TO = 'prod-team@example.com'
+    EMAIL_TO = 'chayansamanta8@gmail.com'
   }
 
   parameters {
-    string(name: 'IMAGE_TAG', defaultValue: 'latest', description: 'Image tag for frontend and microservice')
-    choice(name: 'DEPLOYMENT_STRATEGY', choices: ['canary', 'blue-green', 'rolling'], description: 'Microservice release strategy')
-    booleanParam(name: 'ROLLBACK', defaultValue: true, description: 'Rollback on failure')
-    booleanParam(name: 'ROLLBACK_ONLY', defaultValue: false, description: 'Run rollback only and skip deployment stages')
+    string(name: 'IMAGE_TAG', defaultValue: 'latest', description: 'Image tag to deploy')
+    string(name: 'DB_HOST', defaultValue: 'postgres-db', description: 'Database host')
+    string(name: 'DB_PORT', defaultValue: '5432', description: 'Database port')
+    string(name: 'DB_NAME', defaultValue: 'app_db', description: 'Database name')
+    string(name: 'DB_USER', defaultValue: 'app_user', description: 'Database user')
+    password(name: 'DB_PASSWORD', defaultValue: 'app_password', description: 'Database password')
+    booleanParam(name: 'ROLLBACK_ONLY', defaultValue: false, description: 'Rollback Kubernetes deployments only')
   }
 
   stages {
-    stage('Approval') {
-      when {
-        expression { return !params.ROLLBACK_ONLY }
-      }
-      steps {
-        input message: 'Approve production deployment?', ok: 'Deploy'
-      }
-    }
-
-    stage('Load PROD Secrets from Vault') {
-      when {
-        expression { return !params.ROLLBACK_ONLY }
-      }
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'vault-approle', usernameVariable: 'ROLE_ID', passwordVariable: 'SECRET_ID')]) {
-          script {
-            env.VAULT_TOKEN = sh(
-              script: 'vault write -field=client_token auth/approle/login role_id=${ROLE_ID} secret_id=${SECRET_ID}',
-              returnStdout: true
-            ).trim()
-            def prodTomcatHost = sh(
-              script: 'VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=tomcat_host secret/prod/apps',
-              returnStdout: true
-            ).trim()
-            env.PROD_TOMCAT_HOST = 'ubuntu@' + prodTomcatHost
-            env.PROD_MAIN_APP_HOST = env.PROD_TOMCAT_HOST
-            env.PROD_TOMCAT_HTTP = prodTomcatHost
-          }
-        }
-      }
-    }
-
-    stage('Deploy Microservice (YAML Only)') {
-      when {
-        expression { return !params.ROLLBACK_ONLY }
-      }
-      steps {
-        script {
-          sh '''
-            PREVIOUS_IMAGE=$(kubectl get deployment microservice -n ${PROD_NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)
-            echo "${PREVIOUS_IMAGE}" > .prod_previous_microservice_image
-            PREVIOUS_FRONTEND_IMAGE=$(kubectl get deployment frontend -n ${PROD_NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)
-            echo "${PREVIOUS_FRONTEND_IMAGE}" > .prod_previous_frontend_image
-            NEW_IMAGE="${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG}"
-            NEW_FRONTEND_IMAGE="${FRONTEND_IMAGE_REPO}:${IMAGE_TAG}"
-
-            DB_HOST=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=host secret/prod/db)
-            DB_PORT=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=port secret/prod/db)
-            DB_NAME=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=db secret/prod/db)
-            DB_USER=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=user secret/prod/db)
-            DB_PASSWORD=$(VAULT_ADDR=${VAULT_ADDR} VAULT_TOKEN=${VAULT_TOKEN} vault kv get -field=password secret/prod/db)
-
-            kubectl apply -f infra/kubernetes/prod/namespace.yaml
-            kubectl apply -f infra/kubernetes/prod/service.yaml
-            kubectl apply -f infra/kubernetes/prod/frontend-service.yaml
-            kubectl apply -f infra/kubernetes/prod/service-canary.yaml
-            kubectl apply -f infra/kubernetes/prod/service-active.yaml
-            kubectl apply -f infra/kubernetes/prod/hpa.yaml
-
-            sed "s|__FRONTEND_IMAGE__|${NEW_FRONTEND_IMAGE}|g" infra/kubernetes/prod/frontend-deployment.yaml > infra/kubernetes/prod/frontend-deployment.rendered.yaml
-            kubectl apply -f infra/kubernetes/prod/frontend-deployment.rendered.yaml
-            kubectl rollout status deployment/frontend -n ${PROD_NAMESPACE}
-
-            kubectl create secret generic db-secrets \
-              --from-literal=host=${DB_HOST} \
-              --from-literal=port=${DB_PORT} \
-              --from-literal=db=${DB_NAME} \
-              --from-literal=user=${DB_USER} \
-              --from-literal=password=${DB_PASSWORD} \
-              -n ${PROD_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-          '''
-
-          if (params.DEPLOYMENT_STRATEGY == 'canary') {
-            sh '''
-              sed "s|__MICROSERVICE_IMAGE__|${NEW_IMAGE}|g" infra/kubernetes/prod/deployment-canary.yaml > infra/kubernetes/prod/deployment-canary.rendered.yaml
-              kubectl apply -f infra/kubernetes/prod/deployment-canary.rendered.yaml
-              kubectl rollout status deployment/microservice-canary -n ${PROD_NAMESPACE}
-
-              sed "s|__MICROSERVICE_IMAGE__|${NEW_IMAGE}|g" infra/kubernetes/prod/deployment.yaml > infra/kubernetes/prod/deployment-stable.rendered.yaml
-              kubectl apply -f infra/kubernetes/prod/deployment-stable.rendered.yaml
-              kubectl rollout status deployment/microservice -n ${PROD_NAMESPACE}
-
-              kubectl scale deployment/microservice-canary --replicas=0 -n ${PROD_NAMESPACE}
-            '''
-          } else if (params.DEPLOYMENT_STRATEGY == 'blue-green') {
-            sh '''
-              ACTIVE_TRACK=$(kubectl get service microservice-active -n ${PROD_NAMESPACE} -o jsonpath='{.spec.selector.track}' 2>/dev/null || echo blue)
-              if [ "${ACTIVE_TRACK}" = "blue" ]; then
-                TARGET_TRACK=green
-                TARGET_FILE=infra/kubernetes/prod/deployment-green.yaml
-                SCALE_DOWN=microservice-blue
-              else
-                TARGET_TRACK=blue
-                TARGET_FILE=infra/kubernetes/prod/deployment-blue.yaml
-                SCALE_DOWN=microservice-green
-              fi
-
-              sed "s|__MICROSERVICE_IMAGE__|${NEW_IMAGE}|g" ${TARGET_FILE} > infra/kubernetes/prod/deployment-target.rendered.yaml
-              kubectl apply -f infra/kubernetes/prod/deployment-target.rendered.yaml
-              kubectl scale deployment/microservice-${TARGET_TRACK} --replicas=3 -n ${PROD_NAMESPACE}
-              kubectl rollout status deployment/microservice-${TARGET_TRACK} -n ${PROD_NAMESPACE}
-
-              kubectl patch service microservice-active -n ${PROD_NAMESPACE} -p "{\"spec\":{\"selector\":{\"app\":\"microservice\",\"track\":\"${TARGET_TRACK}\"}}}"
-              kubectl scale deployment/${SCALE_DOWN} --replicas=0 -n ${PROD_NAMESPACE}
-            '''
-          } else {
-            sh '''
-              sed "s|__MICROSERVICE_IMAGE__|${NEW_IMAGE}|g" infra/kubernetes/prod/deployment.yaml > infra/kubernetes/prod/deployment-stable.rendered.yaml
-              kubectl apply -f infra/kubernetes/prod/deployment-stable.rendered.yaml
-              kubectl rollout status deployment/microservice -n ${PROD_NAMESPACE}
-            '''
-          }
-        }
-      }
-    }
-
-    stage('Deploy Main App WAR PROD') {
+    stage('Deploy PROD Images') {
       when {
         expression { return !params.ROLLBACK_ONLY }
       }
       steps {
         sh '''
-          ssh ${PROD_MAIN_APP_HOST} "cp /opt/tomcat/webapps/monolith.war /opt/tomcat/webapps/monolith.war.bak || true"
-          scp applications/monolith/target/monolith.war ${PROD_MAIN_APP_HOST}:/opt/tomcat/webapps/
-          ssh ${PROD_MAIN_APP_HOST} "sudo systemctl restart tomcat"
+          NEW_MICROSERVICE_IMAGE="${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG}"
+          NEW_FRONTEND_IMAGE="${FRONTEND_IMAGE_REPO}:${IMAGE_TAG}"
+          NEW_MAIN_APP_IMAGE="${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG}"
+
+          sed "s|__MICROSERVICE_IMAGE__|${NEW_MICROSERVICE_IMAGE}|g" infra/kubernetes/prod/deployment.yaml > infra/kubernetes/prod/deployment.rendered.yaml
+          sed "s|__FRONTEND_IMAGE__|${NEW_FRONTEND_IMAGE}|g" infra/kubernetes/prod/frontend-deployment.yaml > infra/kubernetes/prod/frontend-deployment.rendered.yaml
+          sed "s|__MAIN_APP_IMAGE__|${NEW_MAIN_APP_IMAGE}|g" infra/kubernetes/prod/monolith-deployment.yaml > infra/kubernetes/prod/monolith-deployment.rendered.yaml
+
+          kubectl create namespace ${PROD_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic db-secrets \
+            --from-literal=host='${DB_HOST}' \
+            --from-literal=port='${DB_PORT}' \
+            --from-literal=db='${DB_NAME}' \
+            --from-literal=user='${DB_USER}' \
+            --from-literal=password='${DB_PASSWORD}' \
+            -n ${PROD_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl apply -f infra/kubernetes/prod/namespace.yaml
+          kubectl apply -f infra/kubernetes/prod/service.yaml
+          kubectl apply -f infra/kubernetes/prod/frontend-service.yaml
+          kubectl apply -f infra/kubernetes/prod/monolith-service.yaml
+          kubectl apply -f infra/kubernetes/prod/hpa.yaml
+          kubectl apply -f infra/kubernetes/prod/deployment.rendered.yaml
+          kubectl apply -f infra/kubernetes/prod/frontend-deployment.rendered.yaml
+          kubectl apply -f infra/kubernetes/prod/monolith-deployment.rendered.yaml
+
+          kubectl rollout status deployment/microservice -n ${PROD_NAMESPACE}
+          kubectl rollout status deployment/frontend -n ${PROD_NAMESPACE}
+          kubectl rollout status deployment/monolith -n ${PROD_NAMESPACE}
         '''
       }
     }
@@ -155,12 +66,18 @@ pipeline {
       }
       steps {
         sh 'mkdir -p reports && kubectl get pods -n ${PROD_NAMESPACE} | tee reports/prod-pods.txt'
-        sh 'curl -fsS http://${PROD_TOMCAT_HTTP}:8080/monolith/health >/dev/null'
-        sh 'curl -fsS http://${PROD_TOMCAT_HTTP}:8080/monolith/api/microservice-status | tee reports/prod-monolith-microservice-bridge.json'
+        sh '''
+          kubectl port-forward -n ${PROD_NAMESPACE} svc/monolith 18080:80 > prod-monolith-port-forward.log 2>&1 &
+          PF_PID=$!
+          trap "kill ${PF_PID} >/dev/null 2>&1 || true" EXIT
+          sleep 5
+          curl -fsS http://127.0.0.1:18080/monolith/health >/dev/null
+          curl -fsS http://127.0.0.1:18080/monolith/api/microservice-status | tee reports/prod-monolith-microservice-bridge.json
+        '''
       }
     }
 
-    stage('Rollback PROD (Parameter)') {
+    stage('Rollback PROD') {
       when {
         expression { return params.ROLLBACK_ONLY }
       }
@@ -168,12 +85,7 @@ pipeline {
         sh '''
           kubectl rollout undo deployment/microservice -n ${PROD_NAMESPACE} || true
           kubectl rollout undo deployment/frontend -n ${PROD_NAMESPACE} || true
-          kubectl rollout undo deployment/microservice-canary -n ${PROD_NAMESPACE} || true
-          kubectl rollout undo deployment/microservice-blue -n ${PROD_NAMESPACE} || true
-          kubectl rollout undo deployment/microservice-green -n ${PROD_NAMESPACE} || true
-
-          ssh ${PROD_MAIN_APP_HOST} "cp /opt/tomcat/webapps/monolith.war.bak /opt/tomcat/webapps/monolith.war || true"
-          ssh ${PROD_MAIN_APP_HOST} "sudo systemctl restart tomcat || true"
+          kubectl rollout undo deployment/monolith -n ${PROD_NAMESPACE} || true
         '''
       }
     }
@@ -190,8 +102,7 @@ Build: ${env.BUILD_NUMBER}
 Result: ${currentBuild.currentResult}
 Image Tag: ${params.IMAGE_TAG}
 Namespace: ${env.PROD_NAMESPACE}
-Strategy: ${params.DEPLOYMENT_STRATEGY}
-Tomcat Host: ${env.PROD_TOMCAT_HTTP}
+DB Host: ${params.DB_HOST}
 URL: ${env.BUILD_URL}
 EOF
         """
@@ -205,54 +116,12 @@ EOF
           <p><b>Pipeline:</b> ${env.JOB_NAME}</p>
           <p><b>Status:</b> ${currentBuild.currentResult}</p>
           <p><b>Image Tag:</b> ${params.IMAGE_TAG}</p>
-          <p><b>Strategy:</b> ${params.DEPLOYMENT_STRATEGY}</p>
           <p><b>Namespace:</b> ${env.PROD_NAMESPACE}</p>
-          <p><b>Reports:</b> pod snapshot and bridge API output attached.</p>
           <p><a href='${env.BUILD_URL}'>Open Build</a></p>
         """,
         attachmentsPattern: 'reports/**',
         attachLog: true
       )
-    }
-    failure {
-      script {
-        if (params.ROLLBACK) {
-          sh '''
-            PREVIOUS_IMAGE=$(cat .prod_previous_microservice_image 2>/dev/null || true)
-            if [ -n "${PREVIOUS_IMAGE}" ]; then
-              if [ "${DEPLOYMENT_STRATEGY}" = "blue-green" ]; then
-                ACTIVE_TRACK=$(kubectl get service microservice-active -n ${PROD_NAMESPACE} -o jsonpath='{.spec.selector.track}' 2>/dev/null || echo blue)
-                if [ "${ACTIVE_TRACK}" = "green" ]; then
-                  TARGET_FILE=infra/kubernetes/prod/deployment-green.yaml
-                  TARGET_DEPLOY=microservice-green
-                else
-                  TARGET_FILE=infra/kubernetes/prod/deployment-blue.yaml
-                  TARGET_DEPLOY=microservice-blue
-                fi
-                sed "s|__MICROSERVICE_IMAGE__|${PREVIOUS_IMAGE}|g" ${TARGET_FILE} > infra/kubernetes/prod/deployment.rollback.yaml
-                kubectl apply -f infra/kubernetes/prod/deployment.rollback.yaml
-                kubectl scale deployment/${TARGET_DEPLOY} --replicas=3 -n ${PROD_NAMESPACE}
-                kubectl rollout status deployment/${TARGET_DEPLOY} -n ${PROD_NAMESPACE}
-              else
-                sed "s|__MICROSERVICE_IMAGE__|${PREVIOUS_IMAGE}|g" infra/kubernetes/prod/deployment.yaml > infra/kubernetes/prod/deployment.rollback.yaml
-                kubectl apply -f infra/kubernetes/prod/deployment.rollback.yaml
-                kubectl rollout status deployment/microservice -n ${PROD_NAMESPACE}
-              fi
-            fi
-
-            PREVIOUS_FRONTEND_IMAGE=$(cat .prod_previous_frontend_image 2>/dev/null || true)
-            if [ -n "${PREVIOUS_FRONTEND_IMAGE}" ]; then
-              sed "s|__FRONTEND_IMAGE__|${PREVIOUS_FRONTEND_IMAGE}|g" infra/kubernetes/prod/frontend-deployment.yaml > infra/kubernetes/prod/frontend-deployment.rollback.yaml
-              kubectl apply -f infra/kubernetes/prod/frontend-deployment.rollback.yaml
-              kubectl rollout status deployment/frontend -n ${PROD_NAMESPACE}
-            fi
-            rm -f infra/kubernetes/prod/deployment.rollback.yaml || true
-            rm -f infra/kubernetes/prod/frontend-deployment.rollback.yaml || true
-          '''
-          sh 'ssh ${PROD_MAIN_APP_HOST} "cp /opt/tomcat/webapps/monolith.war.bak /opt/tomcat/webapps/monolith.war || true"'
-          sh 'ssh ${PROD_MAIN_APP_HOST} "sudo systemctl restart tomcat || true"'
-        }
-      }
     }
   }
 }
