@@ -53,8 +53,8 @@ Start Sonar:
 
 docker run -d \
   --name sonarqube \
-  -p 9090:9000 \ 
+  -p 9090:9000 \
   -v sonarqube_data:/opt/sonarqube/data \
   -v sonarqube_extensions:/opt/sonarqube/extensions \
   -v sonarqube_logs:/opt/sonarqube/logs \
-  sonarqube:community
+  sonarqube:lts-community
