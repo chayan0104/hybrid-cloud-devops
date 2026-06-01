@@ -47,3 +47,14 @@ If Jenkins is running locally on a Windows 11 + WSL2 laptop alongside Docker Des
 - 16 GB RAM is the recommended baseline for a stable developer setup
 
 For the detailed breakdown, see `../../docs/UAT-LOCAL-REPLICATION-WSL.md`.
+
+
+Start Sonar:
+
+docker run -d \
+  --name sonarqube \
+  -p 9090:9000 \ 
+  -v sonarqube_data:/opt/sonarqube/data \
+  -v sonarqube_extensions:/opt/sonarqube/extensions \
+  -v sonarqube_logs:/opt/sonarqube/logs \
+  sonarqube:community

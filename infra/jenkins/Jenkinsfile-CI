@@ -12,7 +12,7 @@ pipeline {
     JFROG_DOCKER_REPO = ''
     JFROG_GENERIC_REPO = ''
     VAULT_ADDR = 'https://vault.company.com:8200'
-    SONAR_HOST_URL = 'http://localhost:9000'
+    SONAR_HOST_URL = 'http://localhost:9090'
     EMAIL_TO = 'chayansamanta8@gmail.com'
   }
 
