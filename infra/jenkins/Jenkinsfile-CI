@@ -261,7 +261,7 @@ pipeline {
 
             docker system prune -af
             docker logout
-          ''')
+          '''
         }
       }
     }
