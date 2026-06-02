@@ -55,6 +55,7 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 ```
 
 ## 3. Create local UAT cluster
+kind create cluster --name enterprise-uat
 
 ```bash
 cat > ~/kind-uat.yaml << 'EOF'

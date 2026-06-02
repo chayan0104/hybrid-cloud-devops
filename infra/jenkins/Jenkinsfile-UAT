@@ -31,25 +31,24 @@ pipeline {
           NEW_FRONTEND_IMAGE="${FRONTEND_IMAGE_REPO}:${IMAGE_TAG}"
           NEW_MAIN_APP_IMAGE="${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG}"
 
-          sed "s|__MICROSERVICE_IMAGE__|${NEW_MICROSERVICE_IMAGE}|g" infra/kubernetes/uat/deployment.yaml > infra/kubernetes/uat/deployment.rendered.yaml
+          sed "s|__MICROSERVICE_IMAGE__|${NEW_MICROSERVICE_IMAGE}|g" infra/kubernetes/uat/microservice-deployment.yaml > infra/kubernetes/uat/microservice-deployment.rendered.yaml
           sed "s|__FRONTEND_IMAGE__|${NEW_FRONTEND_IMAGE}|g" infra/kubernetes/uat/frontend-deployment.yaml > infra/kubernetes/uat/frontend-deployment.rendered.yaml
           sed "s|__MAIN_APP_IMAGE__|${NEW_MAIN_APP_IMAGE}|g" infra/kubernetes/uat/monolith-deployment.yaml > infra/kubernetes/uat/monolith-deployment.rendered.yaml
+          sed -e "s|__DB_HOST__|${DB_HOST}|g" -e "s|__DB_PORT__|${DB_PORT}|g" -e "s|__DB_NAME__|${DB_NAME}|g" -e "s|__DB_USER__|${DB_USER}|g" -e "s|__DB_PASSWORD__|${DB_PASSWORD}|g" infra/kubernetes/uat/microservice-secret.yaml > infra/kubernetes/uat/microservice-secret.rendered.yaml
+          sed -e "s|__DB_HOST__|${DB_HOST}|g" -e "s|__DB_PORT__|${DB_PORT}|g" -e "s|__DB_NAME__|${DB_NAME}|g" -e "s|__DB_USER__|${DB_USER}|g" -e "s|__DB_PASSWORD__|${DB_PASSWORD}|g" infra/kubernetes/uat/monolith-secret.yaml > infra/kubernetes/uat/monolith-secret.rendered.yaml
 
           kubectl create namespace ${UAT_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret generic db-secrets \
-            --from-literal=host='${DB_HOST}' \
-            --from-literal=port='${DB_PORT}' \
-            --from-literal=db='${DB_NAME}' \
-            --from-literal=user='${DB_USER}' \
-            --from-literal=password='${DB_PASSWORD}' \
-            -n ${UAT_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
           kubectl apply -f infra/kubernetes/uat/namespace.yaml
-          kubectl apply -f infra/kubernetes/uat/service.yaml
+          kubectl apply -f infra/kubernetes/uat/microservice-configmap.yaml
+          kubectl apply -f infra/kubernetes/uat/microservice-secret.rendered.yaml
+          kubectl apply -f infra/kubernetes/uat/microservice-service.yaml
           kubectl apply -f infra/kubernetes/uat/frontend-service.yaml
+          kubectl apply -f infra/kubernetes/uat/monolith-configmap.yaml
+          kubectl apply -f infra/kubernetes/uat/monolith-secret.rendered.yaml
           kubectl apply -f infra/kubernetes/uat/monolith-service.yaml
-          kubectl apply -f infra/kubernetes/uat/hpa.yaml
-          kubectl apply -f infra/kubernetes/uat/deployment.rendered.yaml
+          kubectl apply -f infra/kubernetes/uat/microservice-hpa.yaml
+          kubectl apply -f infra/kubernetes/uat/microservice-deployment.rendered.yaml
           kubectl apply -f infra/kubernetes/uat/frontend-deployment.rendered.yaml
           kubectl apply -f infra/kubernetes/uat/monolith-deployment.rendered.yaml
 

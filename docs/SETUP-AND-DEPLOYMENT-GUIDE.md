@@ -45,7 +45,7 @@ open http://localhost:9093/microservice/swagger-ui.html
 ```bash
 kubectl apply -f infra/kubernetes/uat/
 sed "s|__MICROSERVICE_IMAGE__|your-registry.io/microservice:uat-v1|g" \
-  infra/kubernetes/uat/deployment.yaml | kubectl apply -f -
+  infra/kubernetes/uat/microservice-deployment.yaml | kubectl apply -f -
 kubectl rollout status deployment/microservice -n enterprise-uat
 ```
 
@@ -99,7 +99,7 @@ Deploy PROD workloads:
 ```bash
 kubectl apply -f infra/kubernetes/prod/
 sed "s|__MICROSERVICE_IMAGE__|your-registry.io/microservice:prod-v1|g" \
-  infra/kubernetes/prod/deployment-canary.yaml | kubectl apply -f -
+  infra/kubernetes/prod/strategies/microservice-canary-deployment.yaml | kubectl apply -f -
 kubectl rollout status deployment/microservice-canary -n enterprise-prod
 ```
 
@@ -107,16 +107,16 @@ Promote stable:
 
 ```bash
 sed "s|__MICROSERVICE_IMAGE__|your-registry.io/microservice:prod-v1|g" \
-  infra/kubernetes/prod/deployment.yaml | kubectl apply -f -
+  infra/kubernetes/prod/microservice-deployment.yaml | kubectl apply -f -
 kubectl scale deployment/microservice-canary --replicas=0 -n enterprise-prod
 ```
 
 Blue-green option:
 
 ```bash
-kubectl apply -f infra/kubernetes/prod/deployment-blue.yaml
-kubectl apply -f infra/kubernetes/prod/deployment-green.yaml
-kubectl apply -f infra/kubernetes/prod/service-active.yaml
+kubectl apply -f infra/kubernetes/prod/strategies/microservice-blue-deployment.yaml
+kubectl apply -f infra/kubernetes/prod/strategies/microservice-green-deployment.yaml
+kubectl apply -f infra/kubernetes/prod/strategies/microservice-active-service.yaml
 ```
 
 ## 5. CI/CD Pipelines

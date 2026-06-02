@@ -1,12 +1,19 @@
-# Microservice Helm Chart
+# Reusable Backend Helm Chart
 
 Location: `infra/helm/charts/microservice/`
 
-## Chart Files
+## Purpose
 
-- `Chart.yaml`: chart metadata
-- `values.yaml`: default values
-- `templates/deployment.yaml`
-- `templates/service.yaml`
+This chart now deploys either the microservice or monolith backend by swapping values files. It separates non-secret config from Vault-sourced secrets and includes the operational pieces normally expected in production.
+
+## Rendered resources
+
+- `ConfigMap`
+- `ExternalSecret`
+- `Deployment`
+- `Service`
+- `HorizontalPodAutoscaler`
+- `PodDisruptionBudget`
+- `ServiceAccount`
 
 Use environment override files from `infra/helm/values/`.

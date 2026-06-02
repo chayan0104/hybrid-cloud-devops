@@ -2,14 +2,14 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: microservice-hpa
-  namespace: enterprise-perf-prod
+  namespace: enterprise-uat
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: microservice
   minReplicas: 2
-  maxReplicas: 10
+  maxReplicas: 6
   metrics:
     - type: Resource
       resource:

@@ -1,16 +1,94 @@
+nameOverride: ""
+fullnameOverride: ""
+
 replicaCount: 2
+revisionHistoryLimit: 3
+terminationGracePeriodSeconds: 30
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
 
 image:
   repository: mechayan97/microservice
   tag: latest
   pullPolicy: IfNotPresent
 
-dbSecretName: db-secrets
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
 
 service:
   type: ClusterIP
   port: 80
   targetPort: 8081
+
+config:
+  env:
+    APP_ENVIRONMENT: uat
+
+existingSecretName: ""
+
+secretProvider:
+  enabled: true
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  targetSecretName: ""
+  data:
+    - secretKey: DB_HOST
+      remoteRef:
+        key: secret/data/uat/app
+        property: db_host
+    - secretKey: DB_PORT
+      remoteRef:
+        key: secret/data/uat/app
+        property: db_port
+    - secretKey: DB_NAME
+      remoteRef:
+        key: secret/data/uat/app
+        property: db_name
+    - secretKey: DB_USER
+      remoteRef:
+        key: secret/data/uat/app
+        property: db_user
+    - secretKey: DB_PASSWORD
+      remoteRef:
+        key: secret/data/uat/app
+        property: db_password
+
+extraEnvFromSecrets: []
+extraEnvFromConfigMaps: []
+extraEnv: []
+
+probes:
+  readiness:
+    path: /microservice/actuator/health/readiness
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  liveness:
+    path: /microservice/actuator/health/liveness
+    initialDelaySeconds: 30
+    periodSeconds: 10
 
 resources:
   requests:
@@ -20,5 +98,12 @@ resources:
     cpu: 750m
     memory: 768Mi
 
-env:
-  APP_ENVIRONMENT: uat
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

@@ -20,7 +20,7 @@ This guide is tailored for DevOps interviews based on this repository.
    - Vault is the centralized source (`secret/shared`, `secret/uat`, `secret/prod`, `secret/perf-prod`).
 
 2. How are DB credentials injected into workloads?
-   - Jenkins reads Vault and creates `db-secrets` in Kubernetes namespaces.
+   - Jenkins renders per-app Kubernetes `Secret` manifests at deploy time and applies them to the target namespace.
 
 3. How is deployment done for microservice?
    - YAML-based image substitution (`__MICROSERVICE_IMAGE__`) and `kubectl apply`.

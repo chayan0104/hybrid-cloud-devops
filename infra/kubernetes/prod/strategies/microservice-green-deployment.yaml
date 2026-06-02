@@ -1,10 +1,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: microservice
+  name: microservice-green
   namespace: enterprise-prod
 spec:
-  replicas: 3
+  replicas: 0
+  revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -13,46 +14,32 @@ spec:
   selector:
     matchLabels:
       app: microservice
-      track: stable
+      version: green
   template:
     metadata:
       labels:
         app: microservice
-        track: stable
+        version: green
     spec:
+      terminationGracePeriodSeconds: 30
       containers:
         - name: microservice
-          image: __MICROSERVICE_IMAGE__
+          image: __MICROSERVICE_IMAGE_GREEN__
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 1000
           ports:
             - containerPort: 8081
-          env:
-            - name: APP_ENVIRONMENT
-              value: prod
-            - name: DB_HOST
-              valueFrom:
-                secretKeyRef:
-                  name: db-secrets
-                  key: host
-            - name: DB_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: db-secrets
-                  key: port
-            - name: DB_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: db-secrets
-                  key: db
-            - name: DB_USER
-              valueFrom:
-                secretKeyRef:
-                  name: db-secrets
-                  key: user
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: db-secrets
-                  key: password
+          envFrom:
+            - configMapRef:
+                name: microservice-config
+            - secretRef:
+                name: microservice-secrets
           readinessProbe:
             httpGet:
               path: /microservice/actuator/health/readiness

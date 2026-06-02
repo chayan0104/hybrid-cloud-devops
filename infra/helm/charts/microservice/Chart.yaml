@@ -1,6 +1,6 @@
 apiVersion: v2
 name: microservice
-description: Spring Boot microservice chart
+description: Reusable backend application chart for microservice and monolith workloads
 type: application
 version: 0.1.0
 appVersion: "1.0.0"

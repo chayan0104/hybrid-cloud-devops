@@ -4,11 +4,10 @@ Namespace: `enterprise-prod`
 
 ## Files
 
-- Stable microservice: `deployment.yaml`, `service.yaml`
-- Canary resources: `deployment-canary.yaml`, `service-canary.yaml`
-- Blue-green resources: `deployment-blue.yaml`, `deployment-green.yaml`, `service-active.yaml`
+- Stable microservice: `microservice-configmap.yaml`, `microservice-secret.yaml`, `microservice-deployment.yaml`, `microservice-service.yaml`, `microservice-hpa.yaml`
+- Monolith: `monolith-configmap.yaml`, `monolith-secret.yaml`, `monolith-deployment.yaml`, `monolith-service.yaml`
 - Frontend: `frontend-deployment.yaml`, `frontend-service.yaml`
-- Autoscaling: `hpa.yaml`
+- Advanced rollout variants: `strategies/`
 
 ## Deployment Strategies
 
@@ -16,4 +15,8 @@ Namespace: `enterprise-prod`
 - Canary
 - Blue-Green
 
-All image updates are done through YAML placeholder rendering in pipeline.
+## Notes
+
+- PROD runs on EKS, but the base app manifest set intentionally matches UAT.
+- Image and secret values are rendered by Jenkins at deploy time.
+- Canary and blue-green manifests remain available under `strategies/` for controlled rollout experiments.

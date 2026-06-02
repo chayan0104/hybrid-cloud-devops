@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: microservice-config
+  namespace: enterprise-uat
+data:
+  APP_ENVIRONMENT: "uat"

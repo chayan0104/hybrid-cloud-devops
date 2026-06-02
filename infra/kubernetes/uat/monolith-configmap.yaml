@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monolith-config
+  namespace: enterprise-uat
+data:
+  APP_ENVIRONMENT: "uat"
+  JAVA_TOOL_OPTIONS: "-Xms512m -Xmx1024m"
+  MICROSERVICE_URL: "http://microservice/microservice"

@@ -1,19 +1,27 @@
-nameOverride: microservice
-fullnameOverride: microservice
+nameOverride: monolith
+fullnameOverride: monolith
 
 replicaCount: 2
 
 image:
-  repository: mechayan97/microservice
+  repository: mechayan97/main-app
   tag: uat-latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
 
 config:
   env:
     APP_ENVIRONMENT: uat
+    JAVA_TOOL_OPTIONS: -Xms512m -Xmx1024m
+    MICROSERVICE_URL: http://microservice/microservice
 
 secretProvider:
   enabled: true
-  targetSecretName: microservice-secrets
+  targetSecretName: monolith-secrets
   data:
     - secretKey: DB_HOST
       remoteRef:
@@ -35,3 +43,21 @@ secretProvider:
       remoteRef:
         key: secret/data/uat/app
         property: db_password
+
+probes:
+  readiness:
+    path: /monolith/health
+    initialDelaySeconds: 20
+    periodSeconds: 5
+  liveness:
+    path: /monolith/health
+    initialDelaySeconds: 40
+    periodSeconds: 10
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 750m
+    memory: 1024Mi

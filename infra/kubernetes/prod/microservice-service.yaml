@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: microservice
-  namespace: enterprise-uat
+  namespace: enterprise-prod
 spec:
   selector:
     app: microservice

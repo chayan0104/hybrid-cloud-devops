@@ -1,18 +1,39 @@
-# Kubernetes Deployment - Setup and Workflow
+# Kubernetes Manifests
 
 Location: `infra/kubernetes/`
 
+## Layout Goal
+
+UAT and PROD now use the same core app manifest layout even though UAT runs on `kind` and PROD runs on EKS. The cluster changes, but the app YAML shape stays the same.
+
 ## Environments
 
-- `uat/`: frontend + microservice in `enterprise-uat`
-- `prod/`: frontend + microservice in `enterprise-prod` with rolling/canary/blue-green resources
-- `perf-prod/`: perf environment for frontend + microservice in `enterprise-perf-prod`
+- `uat/`: frontend, microservice, and monolith in `enterprise-uat`
+- `prod/`: frontend, microservice, and monolith in `enterprise-prod` plus canary and blue-green variants
+- `perf-prod/`: frontend and microservice in `enterprise-perf-prod`
 
-## Core Pattern
+## Core App Pattern
 
-- Frontend image placeholder: `__FRONTEND_IMAGE__`
-- Microservice image placeholder: `__MICROSERVICE_IMAGE__`
-- Pipelines render YAML with actual image tags and apply.
+Each backend app keeps its own YAML files:
+
+- `microservice-configmap.yaml`
+- `microservice-secret.yaml`
+- `microservice-deployment.yaml`
+- `microservice-service.yaml`
+- `microservice-hpa.yaml`
+- `monolith-configmap.yaml`
+- `monolith-secret.yaml`
+- `monolith-deployment.yaml`
+- `monolith-service.yaml`
+
+Frontend keeps:
+
+- `frontend-deployment.yaml`
+- `frontend-service.yaml`
+
+## Secret Handling
+
+Secret templates are committed without values. Jenkins renders the real values into temporary `*.rendered.yaml` files during deployment, so the same manifest model works on both `kind` and EKS.
 
 ## Quick Commands
 
@@ -25,11 +46,12 @@ kubectl apply -f infra/kubernetes/perf-prod/
 ## Rollout Verification
 
 ```bash
-kubectl rollout status deployment/frontend -n enterprise-uat
 kubectl rollout status deployment/microservice -n enterprise-uat
+kubectl rollout status deployment/monolith -n enterprise-uat
+kubectl rollout status deployment/frontend -n enterprise-uat
 ```
 
 ## Related
 
+- Helm path: `infra/helm/README.md`
 - CI/CD: `infra/jenkins/README.md`
-- Setup guide: `docs/SETUP-AND-DEPLOYMENT-GUIDE.md`

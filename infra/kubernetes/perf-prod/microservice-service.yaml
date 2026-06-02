@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: microservice-canary
-  namespace: enterprise-prod
+  name: microservice
+  namespace: enterprise-perf-prod
 spec:
   selector:
     app: microservice
-    track: canary
+    track: stable
   ports:
     - name: http
       protocol: TCP
