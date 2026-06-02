@@ -77,7 +77,7 @@ This guide is tailored for DevOps interviews based on this repository.
 ## 5. Rapid Review Checklist
 
 - Knows where Jenkins pipelines are (`../infra/jenkins/`)
-- Knows where Kubernetes manifests are (`../infra/kubernetes/`)
+- Knows where Kubernetes manifests are (`../k8s/`)
 - Knows where Terraform environments are (`../infra/terraform/prod`, `../infra/terraform/perf-prod`)
 - Knows where Vault setup is (`../infra/vault/`)
 - Knows where setup/architecture docs are (`../README.md`, `ARCHITECTURE.md`, `SETUP-AND-DEPLOYMENT-GUIDE.md`)

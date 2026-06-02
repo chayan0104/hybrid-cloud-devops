@@ -1,0 +1,91 @@
+---
+# ServiceMonitor for Microservice (requires Prometheus Operator)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: microservice-monitor
+  namespace: enterprise-app
+  labels:
+    app: microservice
+spec:
+  selector:
+    matchLabels:
+      app: microservice
+  endpoints:
+    - port: http
+      interval: 30s
+      path: /microservice/actuator/prometheus
+      scheme: http
+---
+# ServiceMonitor for Monolith
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: monolith-monitor
+  namespace: enterprise-app
+  labels:
+    app: monolith
+spec:
+  selector:
+    matchLabels:
+      app: monolith
+  endpoints:
+    - port: http
+      interval: 30s
+      path: /monolith/actuator/prometheus
+      scheme: http
+---
+# PrometheusRule for Alerts
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: enterprise-app-alerts
+  namespace: enterprise-app
+  labels:
+    prometheus: kube-prometheus
+spec:
+  groups:
+    - name: enterprise-app.rules
+      interval: 30s
+      rules:
+        - alert: MicroserviceHighErrorRate
+          expr: rate(http_requests_total{app="microservice",status=~"5.."}[5m]) > 0.05
+          for: 5m
+          annotations:
+            summary: "High error rate on microservice"
+            description: "Error rate > 5% for 5 minutes"
+
+        - alert: MicroserviceHighLatency
+          expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{app="microservice"}[5m])) > 1
+          for: 5m
+          annotations:
+            summary: "High latency on microservice"
+            description: "P95 latency > 1s for 5 minutes"
+
+        - alert: MonolithReplicasDown
+          expr: kube_deployment_status_replicas_available{deployment="monolith"} < 2
+          for: 5m
+          annotations:
+            summary: "Monolith has fewer than 2 replicas"
+            description: "Only {{ $value }} monolith replicas available"
+
+        - alert: PostgresReplicaDown
+          expr: kube_deployment_status_replicas_available{deployment="postgres"} < 1
+          for: 2m
+          annotations:
+            summary: "PostgreSQL is down"
+            description: "PostgreSQL replica count is 0"
+
+        - alert: HighMemoryUsage
+          expr: (container_memory_usage_bytes{namespace="enterprise-app"} / container_spec_memory_limit_bytes) > 0.9
+          for: 5m
+          annotations:
+            summary: "High memory usage: {{ $labels.pod }}"
+            description: "Container memory usage > 90%"
+
+        - alert: HighCPUUsage
+          expr: (rate(container_cpu_usage_seconds_total{namespace="enterprise-app"}[5m]) * 100) > 80
+          for: 5m
+          annotations:
+            summary: "High CPU usage: {{ $labels.pod }}"
+            description: "Container CPU usage > 80%"

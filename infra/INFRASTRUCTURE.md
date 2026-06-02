@@ -68,32 +68,38 @@ PROD stack composition:
 
 ## Phase 3: Kubernetes deployment
 
-UAT:
+Deploy all components using consolidated k8s/ manifests:
 
 ```bash
-kubectl apply -f infra/kubernetes/uat/
+# Apply all Kubernetes resources
+kubectl apply -f k8s/
+
+# Verify deployments
+kubectl get all -n enterprise-app
+kubectl rollout status deployment/microservice -n enterprise-app
+kubectl rollout status deployment/frontend -n enterprise-app
+kubectl rollout status deployment/monolith -n enterprise-app
+kubectl rollout status deployment/postgres -n enterprise-app
 ```
 
-PROD:
+With image substitution (via Jenkins CI/CD):
 
 ```bash
-kubectl apply -f infra/kubernetes/prod/
+# Substitute image placeholders before deployment
+sed "s|__MICROSERVICE_IMAGE__|registry.io/microservice:v1.0|g" \
+  k8s/microservice/deployment.yaml | kubectl apply -f -
+sed "s|__FRONTEND_IMAGE__|registry.io/frontend:v1.0|g" \
+  k8s/frontend/deployment.yaml | kubectl apply -f -
+sed "s|__MONOLITH_IMAGE__|registry.io/monolith:v1.0|g" \
+  k8s/monolith/deployment.yaml | kubectl apply -f -
 ```
 
-Blue-Green resources:
+Helm option (legacy, optional):
 
 ```bash
-kubectl apply -f infra/kubernetes/prod/deployment-blue.yaml
-kubectl apply -f infra/kubernetes/prod/deployment-green.yaml
-kubectl apply -f infra/kubernetes/prod/service-active.yaml
-```
-
-Helm option:
-
-```bash
-helm upgrade --install microservice-prod infra/helm/charts/microservice \
+helm upgrade --install microservice infra/helm/charts/microservice \
   -f infra/helm/values/prod-microservice.yaml \
-  --namespace enterprise-prod --create-namespace
+  --namespace enterprise-app --create-namespace
 ```
 
 ## Phase 4: Monitoring

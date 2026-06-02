@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: monolith
+  namespace: enterprise-app
+  labels:
+    app: monolith
+spec:
+  selector:
+    app: monolith
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP

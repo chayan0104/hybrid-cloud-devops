@@ -4,15 +4,15 @@ pipeline {
   environment {
     IMAGE_REGISTRY = 'mechayan97'
     MICROSERVICE_IMAGE_REPO = "${IMAGE_REGISTRY}/microservice"
-    MAIN_APP_IMAGE_REPO = "${IMAGE_REGISTRY}/monolith"
+    MONOLITH_IMAGE_REPO = "${IMAGE_REGISTRY}/monolith"
     FRONTEND_IMAGE_REPO = "${IMAGE_REGISTRY}/frontend-angular"
-    UAT_NAMESPACE = 'enterprise-uat'
+    APP_NAMESPACE = 'enterprise-app'
     EMAIL_TO = 'chayansamanta8@gmail.com'
   }
 
   parameters {
     string(name: 'IMAGE_TAG', defaultValue: 'latest', description: 'Image tag to deploy')
-    string(name: 'DB_HOST', defaultValue: 'postgres-db', description: 'Database host')
+    string(name: 'DB_HOST', defaultValue: 'postgres.enterprise-app.svc.cluster.local', description: 'Database host')
     string(name: 'DB_PORT', defaultValue: '5432', description: 'Database port')
     string(name: 'DB_NAME', defaultValue: 'app_db', description: 'Database name')
     string(name: 'DB_USER', defaultValue: 'app_user', description: 'Database user')
@@ -29,32 +29,45 @@ pipeline {
         sh '''
           NEW_MICROSERVICE_IMAGE="${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG}"
           NEW_FRONTEND_IMAGE="${FRONTEND_IMAGE_REPO}:${IMAGE_TAG}"
-          NEW_MAIN_APP_IMAGE="${MAIN_APP_IMAGE_REPO}:${IMAGE_TAG}"
+          NEW_MONOLITH_IMAGE="${MONOLITH_IMAGE_REPO}:${IMAGE_TAG}"
 
-          sed "s|__MICROSERVICE_IMAGE__|${NEW_MICROSERVICE_IMAGE}|g" infra/kubernetes/uat/microservice-deployment.yaml > infra/kubernetes/uat/microservice-deployment.rendered.yaml
-          sed "s|__FRONTEND_IMAGE__|${NEW_FRONTEND_IMAGE}|g" infra/kubernetes/uat/frontend-deployment.yaml > infra/kubernetes/uat/frontend-deployment.rendered.yaml
-          sed "s|__MAIN_APP_IMAGE__|${NEW_MAIN_APP_IMAGE}|g" infra/kubernetes/uat/monolith-deployment.yaml > infra/kubernetes/uat/monolith-deployment.rendered.yaml
-          sed -e "s|__DB_HOST__|${DB_HOST}|g" -e "s|__DB_PORT__|${DB_PORT}|g" -e "s|__DB_NAME__|${DB_NAME}|g" -e "s|__DB_USER__|${DB_USER}|g" -e "s|__DB_PASSWORD__|${DB_PASSWORD}|g" infra/kubernetes/uat/microservice-secret.yaml > infra/kubernetes/uat/microservice-secret.rendered.yaml
-          sed -e "s|__DB_HOST__|${DB_HOST}|g" -e "s|__DB_PORT__|${DB_PORT}|g" -e "s|__DB_NAME__|${DB_NAME}|g" -e "s|__DB_USER__|${DB_USER}|g" -e "s|__DB_PASSWORD__|${DB_PASSWORD}|g" infra/kubernetes/uat/monolith-secret.yaml > infra/kubernetes/uat/monolith-secret.rendered.yaml
+          # Substitute image placeholders
+          sed "s|__MICROSERVICE_IMAGE__|${NEW_MICROSERVICE_IMAGE}|g" k8s/microservice/deployment.yaml > k8s/microservice/deployment.rendered.yaml
+          sed "s|__FRONTEND_IMAGE__|${NEW_FRONTEND_IMAGE}|g" k8s/frontend/deployment.yaml > k8s/frontend/deployment.rendered.yaml
+          sed "s|__MONOLITH_IMAGE__|${NEW_MONOLITH_IMAGE}|g" k8s/monolith/deployment.yaml > k8s/monolith/deployment.rendered.yaml
+          
+          # Substitute database credentials in secrets
+          sed -e "s|__DB_HOST__|${DB_HOST}|g" -e "s|__DB_PORT__|${DB_PORT}|g" -e "s|__DB_NAME__|${DB_NAME}|g" -e "s|__DB_USER__|${DB_USER}|g" -e "s|__DB_PASSWORD__|${DB_PASSWORD}|g" k8s/secrets.yaml > k8s/secrets.rendered.yaml
 
-          kubectl create namespace ${UAT_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create namespace ${APP_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
-          kubectl apply -f infra/kubernetes/uat/namespace.yaml
-          kubectl apply -f infra/kubernetes/uat/microservice-configmap.yaml
-          kubectl apply -f infra/kubernetes/uat/microservice-secret.rendered.yaml
-          kubectl apply -f infra/kubernetes/uat/microservice-service.yaml
-          kubectl apply -f infra/kubernetes/uat/frontend-service.yaml
-          kubectl apply -f infra/kubernetes/uat/monolith-configmap.yaml
-          kubectl apply -f infra/kubernetes/uat/monolith-secret.rendered.yaml
-          kubectl apply -f infra/kubernetes/uat/monolith-service.yaml
-          kubectl apply -f infra/kubernetes/uat/microservice-hpa.yaml
-          kubectl apply -f infra/kubernetes/uat/microservice-deployment.rendered.yaml
-          kubectl apply -f infra/kubernetes/uat/frontend-deployment.rendered.yaml
-          kubectl apply -f infra/kubernetes/uat/monolith-deployment.rendered.yaml
+          # Apply namespace and configs
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/configmap.yaml
+          kubectl apply -f k8s/secrets.rendered.yaml
+          
+          # Apply database
+          kubectl apply -f k8s/postgres/pvc.yaml
+          kubectl apply -f k8s/postgres/deployment.yaml
+          
+          # Apply frontend
+          kubectl apply -f k8s/frontend/service.yaml
+          kubectl apply -f k8s/frontend/deployment.rendered.yaml
+          
+          # Apply monolith
+          kubectl apply -f k8s/monolith/service.yaml
+          kubectl apply -f k8s/monolith/deployment.rendered.yaml
+          
+          # Apply microservice
+          kubectl apply -f k8s/microservice/service.yaml
+          kubectl apply -f k8s/microservice/deployment.rendered.yaml
+          
+          # Apply ingress
+          kubectl apply -f k8s/ingress.yaml
 
-          kubectl rollout status deployment/microservice -n ${UAT_NAMESPACE}
-          kubectl rollout status deployment/frontend -n ${UAT_NAMESPACE}
-          kubectl rollout status deployment/monolith -n ${UAT_NAMESPACE}
+          kubectl rollout status deployment/microservice -n ${APP_NAMESPACE}
+          kubectl rollout status deployment/frontend -n ${APP_NAMESPACE}
+          kubectl rollout status deployment/monolith -n ${APP_NAMESPACE}
         '''
       }
     }
@@ -64,9 +77,9 @@ pipeline {
         expression { return !params.ROLLBACK_ONLY }
       }
       steps {
-        sh 'mkdir -p reports && kubectl get pods -n ${UAT_NAMESPACE} | tee reports/uat-pods.txt'
+        sh 'mkdir -p reports && kubectl get pods -n ${APP_NAMESPACE} | tee reports/uat-pods.txt'
         sh '''
-          kubectl port-forward -n ${UAT_NAMESPACE} svc/monolith 18080:80 > uat-monolith-port-forward.log 2>&1 &
+          kubectl port-forward -n ${APP_NAMESPACE} svc/monolith 18080:80 > uat-monolith-port-forward.log 2>&1 &
           PF_PID=$!
           trap "kill ${PF_PID} >/dev/null 2>&1 || true" EXIT
           sleep 5
@@ -82,9 +95,9 @@ pipeline {
       }
       steps {
         sh '''
-          kubectl rollout undo deployment/microservice -n ${UAT_NAMESPACE} || true
-          kubectl rollout undo deployment/frontend -n ${UAT_NAMESPACE} || true
-          kubectl rollout undo deployment/monolith -n ${UAT_NAMESPACE} || true
+          kubectl rollout undo deployment/microservice -n ${APP_NAMESPACE} || true
+          kubectl rollout undo deployment/frontend -n ${APP_NAMESPACE} || true
+          kubectl rollout undo deployment/monolith -n ${APP_NAMESPACE} || true
         '''
       }
     }
@@ -92,7 +105,7 @@ pipeline {
 
   post {
     always {
-      sh 'rm -f infra/kubernetes/uat/*.rendered.yaml || true'
+      sh 'rm -f k8s/**/*.rendered.yaml || true'
       script {
         sh """
           mkdir -p reports
@@ -100,7 +113,7 @@ pipeline {
 Build: ${env.BUILD_NUMBER}
 Result: ${currentBuild.currentResult}
 Image Tag: ${params.IMAGE_TAG}
-Namespace: ${env.UAT_NAMESPACE}
+Namespace: ${env.APP_NAMESPACE}
 DB Host: ${params.DB_HOST}
 URL: ${env.BUILD_URL}
 EOF

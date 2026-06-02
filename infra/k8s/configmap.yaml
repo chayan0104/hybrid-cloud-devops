@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: enterprise-app
+data:
+  APP_ENVIRONMENT: "prod"
+  LOG_LEVEL: "INFO"
+  ENABLE_METRICS: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: microservice-config
+  namespace: enterprise-app
+data:
+  APP_ENVIRONMENT: "prod"
+  SERVICE_NAME: "microservice"
+  LOG_LEVEL: "INFO"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monolith-config
+  namespace: enterprise-app
+data:
+  APP_ENVIRONMENT: "prod"
+  SERVICE_NAME: "monolith"
+  LOG_LEVEL: "INFO"

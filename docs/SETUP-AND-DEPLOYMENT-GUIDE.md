@@ -42,36 +42,45 @@ open http://localhost:9093/microservice/swagger-ui.html
 
 ## 2. UAT Deployment
 
+Deploy all components (Kubernetes manifests consolidation):
+
 ```bash
-kubectl apply -f infra/kubernetes/uat/
+# Apply entire Kubernetes stack (namespace, configs, postgres, frontend, monolith, microservice, ingress)
+kubectl apply -f k8s/
+
+# Wait for deployments to be ready
+kubectl rollout status deployment/microservice -n enterprise-app
+kubectl rollout status deployment/frontend -n enterprise-app
+kubectl rollout status deployment/monolith -n enterprise-app
+kubectl rollout status deployment/postgres -n enterprise-app
+```
+
+With image substitution (via Jenkins):
+
+```bash
+# Substitute real image URIs before applying
 sed "s|__MICROSERVICE_IMAGE__|your-registry.io/microservice:uat-v1|g" \
-  infra/kubernetes/uat/microservice-deployment.yaml | kubectl apply -f -
-kubectl rollout status deployment/microservice -n enterprise-uat
-```
-
-Deploy monolith WAR to UAT Tomcat:
-
-```bash
-bash infra/scripts/deploy-war.sh \
-  applications/monolith/target/monolith.war \
-  ubuntu@uat-tomcat.internal \
-  /opt/tomcat/webapps
-```
-
-Deploy frontend container to UAT Kubernetes:
-
-```bash
+  k8s/microservice/deployment.yaml | kubectl apply -f -
 sed "s|__FRONTEND_IMAGE__|your-registry.io/frontend-angular:uat-v1|g" \
-  infra/kubernetes/uat/frontend-deployment.yaml | kubectl apply -f -
-kubectl apply -f infra/kubernetes/uat/frontend-service.yaml
+  k8s/frontend/deployment.yaml | kubectl apply -f -
+sed "s|__MONOLITH_IMAGE__|your-registry.io/monolith:uat-v1|g" \
+  k8s/monolith/deployment.yaml | kubectl apply -f -
 ```
 
-Helm option for microservice:
+Port forwarding for testing:
+
+```bash
+kubectl port-forward -n enterprise-app svc/frontend 8080:80
+kubectl port-forward -n enterprise-app svc/monolith 8082:80
+kubectl port-forward -n enterprise-app svc/microservice 8081:80
+```
+
+Helm option for microservice (legacy, optional):
 
 ```bash
 helm upgrade --install microservice-uat infra/helm/charts/microservice \
   -f infra/helm/values/uat-microservice.yaml \
-  --namespace enterprise-uat --create-namespace
+  --namespace enterprise-app --create-namespace
 ```
 
 ## 3. PROD Deployment
@@ -97,26 +106,37 @@ terraform apply -var-file=terraform.tfvars
 Deploy PROD workloads:
 
 ```bash
-kubectl apply -f infra/kubernetes/prod/
-sed "s|__MICROSERVICE_IMAGE__|your-registry.io/microservice:prod-v1|g" \
-  infra/kubernetes/prod/strategies/microservice-canary-deployment.yaml | kubectl apply -f -
-kubectl rollout status deployment/microservice-canary -n enterprise-prod
+# Apply entire Kubernetes stack
+kubectl apply -f k8s/
+
+# Wait for rollouts
+kubectl rollout status deployment/microservice -n enterprise-app
+kubectl rollout status deployment/frontend -n enterprise-app
+kubectl rollout status deployment/monolith -n enterprise-app
 ```
 
-Promote stable:
+With image substitution (via Jenkins):
 
 ```bash
+# Substitute and deploy microservice
 sed "s|__MICROSERVICE_IMAGE__|your-registry.io/microservice:prod-v1|g" \
-  infra/kubernetes/prod/microservice-deployment.yaml | kubectl apply -f -
-kubectl scale deployment/microservice-canary --replicas=0 -n enterprise-prod
+  k8s/microservice/deployment.yaml | kubectl apply -f -
+
+# Deploy frontend  
+sed "s|__FRONTEND_IMAGE__|your-registry.io/frontend-angular:prod-v1|g" \
+  k8s/frontend/deployment.yaml | kubectl apply -f -
+
+# Deploy monolith
+sed "s|__MONOLITH_IMAGE__|your-registry.io/monolith:prod-v1|g" \
+  k8s/monolith/deployment.yaml | kubectl apply -f -
 ```
 
-Blue-green option:
+Helm option for microservice (legacy, optional):
 
 ```bash
-kubectl apply -f infra/kubernetes/prod/strategies/microservice-blue-deployment.yaml
-kubectl apply -f infra/kubernetes/prod/strategies/microservice-green-deployment.yaml
-kubectl apply -f infra/kubernetes/prod/strategies/microservice-active-service.yaml
+helm upgrade --install microservice-prod infra/helm/charts/microservice \
+  -f infra/helm/values/prod-microservice.yaml \
+  --namespace enterprise-app --create-namespace
 ```
 
 ## 5. CI/CD Pipelines
