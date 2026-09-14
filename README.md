@@ -12,8 +12,6 @@ cd applications && docker compose up -d --build
 # Open http://localhost:9091 (frontend), http://localhost:9092 (monolith), http://localhost:9093 (microservice)
 ```
 
-→ **Full quick-start guide:** [QUICK_START.md](QUICK_START.md)
-
 ## 📚 Documentation
 
 | Document | Purpose |
