@@ -7,7 +7,7 @@ This page consolidates the main infrastructure, platform, and deployment operati
 The repository supports a hybrid deployment model across local, UAT, and production environments:
 
 - Local: Docker Compose for application components
-- UAT: Kubernetes + Tomcat VM workloads, Jenkins-driven deployment
+- UAT: Kubernetes + WebLogic VM workloads, Jenkins-driven deployment
 - PROD: AWS infrastructure via Terraform + Kubernetes/EKS + EC2 + RDS
 - PERF-PROD: pre-production validation environment using the same patterns as PROD
 
@@ -20,7 +20,7 @@ Common modules:
 - `infra/terraform/modules/network`
 - `infra/terraform/modules/security`
 - `infra/terraform/modules/alb`
-- `infra/terraform/modules/tomcat-ec2`
+- `infra/terraform/modules/weblogic-ec2`
 - `infra/terraform/modules/eks`
 - `infra/terraform/modules/rds`
 

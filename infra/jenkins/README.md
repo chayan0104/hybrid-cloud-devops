@@ -5,8 +5,8 @@ Location: `infra/jenkins/`
 ## Files
 
 - `Jenkinsfile-CI`: build, test, scan, publish artifacts/images
-- `Jenkinsfile-UAT`: deploy frontend + microservice to K8s and monolith WAR to UAT Tomcat VM
-- `Jenkinsfile-PROD`: deploy frontend + microservice to EKS and monolith WAR to EC2 Tomcat
+- `Jenkinsfile-UAT`: deploy frontend + microservice to K8s and monolith WAR to UAT WebLogic VM
+- `Jenkinsfile-PROD`: deploy frontend + microservice to EKS and monolith WAR to EC2 WebLogic
 
 ## Required Jenkins Plugins
 

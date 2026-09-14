@@ -14,12 +14,12 @@ vault kv put secret/shared/registry \
   password=replace_me
 
 vault kv put secret/uat/db host=postgres.uat.internal port=5432 db=app_db user=app_user password=replace_me
-vault kv put secret/uat/apps tomcat_host=uat-tomcat.internal microservice_namespace=enterprise-uat
+vault kv put secret/uat/apps weblogic_host=uat-weblogic.internal microservice_namespace=enterprise-uat
 
 vault kv put secret/prod/db host=prod-rds.aws port=5432 db=app_db user=prod_user password=replace_me
-vault kv put secret/prod/apps tomcat_host=prod-tomcat.internal microservice_namespace=enterprise-prod
+vault kv put secret/prod/apps weblogic_host=prod-weblogic.internal microservice_namespace=enterprise-prod
 
 vault kv put secret/perf-prod/db host=perf-prod-rds.aws port=5432 db=app_db user=perf_user password=replace_me
-vault kv put secret/perf-prod/apps tomcat_host=perf-prod-tomcat.internal microservice_namespace=enterprise-perf-prod
+vault kv put secret/perf-prod/apps weblogic_host=perf-prod-weblogic.internal microservice_namespace=enterprise-perf-prod
 
 echo "Vault secrets seeded for shared, uat, prod, and perf-prod."

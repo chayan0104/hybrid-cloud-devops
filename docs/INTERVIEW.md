@@ -5,10 +5,10 @@ This guide is tailored for DevOps interviews based on this repository.
 ## 1. Platform Summary
 
 - UAT runtime:
-  - `monolith.war` on Tomcat Linux VM
+  - `monolith.war` on WebLogic Linux VM
   - `frontend` and `microservice` on Kubernetes namespace `enterprise-uat`
 - PROD runtime:
-  - ALB -> EC2 Tomcat (`monolith.war`)
+  - ALB -> EC2 WebLogic (`monolith.war`)
   - `frontend` and `microservice` on EKS namespace `enterprise-prod`
   - PostgreSQL on RDS
 - PERF-PROD runtime:
@@ -41,7 +41,7 @@ This guide is tailored for DevOps interviews based on this repository.
    - `emailext` in CI/UAT/PROD with reports and build logs.
 
 9. What is the Terraform model?
-   - Reusable modules: `network`, `security`, `alb`, `tomcat-ec2`, `eks`, `rds`.
+   - Reusable modules: `network`, `security`, `alb`, `weblogic-ec2`, `eks`, `rds`.
 
 10. Which files define setup and architecture?
     - `../README.md`, `ARCHITECTURE.md`, `SETUP-AND-DEPLOYMENT-GUIDE.md`, `../infra/INFRASTRUCTURE.md`.

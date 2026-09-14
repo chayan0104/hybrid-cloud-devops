@@ -4,7 +4,7 @@ Location: `infra/scripts/`
 
 ## Scripts
 
-- `deploy-war.sh`: deploy WAR to remote Tomcat and restart service
+- `deploy-war.sh`: deploy a WAR to a remote WebLogic host and restart the app server service
 - `rollback-microservice.sh`: rollout undo helper for Kubernetes deployment
 - `preflight-check.sh`: validates required CLIs, scanner images, env vars, and repo paths
 - `TOOLING-READINESS-MATRIX.md`: readiness checklist and expected tooling/capabilities
@@ -12,7 +12,7 @@ Location: `infra/scripts/`
 ## Usage
 
 ```bash
-bash infra/scripts/deploy-war.sh applications/monolith/target/monolith.war ubuntu@host /opt/tomcat/webapps
+bash infra/scripts/deploy-war.sh applications/monolith/target/monolith.war ubuntu@host /u01/oracle/user_projects/domains/base_domain/autodeploy
 
 bash infra/scripts/rollback-microservice.sh enterprise-uat microservice
 

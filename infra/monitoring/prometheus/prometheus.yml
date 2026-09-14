@@ -7,6 +7,6 @@ scrape_configs:
       - targets: ["microservice.enterprise-uat.svc.cluster.local:80"]
     metrics_path: /microservice/actuator/prometheus
 
-  - job_name: "tomcat"
+  - job_name: "weblogic"
     static_configs:
-      - targets: ["uat-tomcat.internal:8080"]
+      - targets: ["uat-weblogic.internal:7001"]

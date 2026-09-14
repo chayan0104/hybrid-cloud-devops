@@ -7,7 +7,7 @@ Location: `infra/terraform/prod/`
 - VPC and subnets
 - Security groups
 - ALB
-- EC2 Tomcat monolith tier
+- EC2 WebLogic monolith tier
 - EKS frontend + microservice tier
 - RDS PostgreSQL
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -ne 3 ]]; then
-  echo "Usage: $0 <war-path> <user@host> <tomcat-webapps-dir>"
+  echo "Usage: $0 <war-path> <user@host> <weblogic-domain-dir>"
   exit 1
 fi
 
@@ -11,6 +11,6 @@ TARGET_HOST="$2"
 TARGET_DIR="$3"
 
 scp "$WAR_PATH" "${TARGET_HOST}:${TARGET_DIR}/"
-ssh "$TARGET_HOST" "sudo systemctl restart tomcat"
+ssh "$TARGET_HOST" "sudo systemctl restart weblogic || sudo systemctl restart wls"
 
 echo "WAR deployed: ${WAR_PATH} -> ${TARGET_HOST}:${TARGET_DIR}"

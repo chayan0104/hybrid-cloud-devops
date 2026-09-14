@@ -14,6 +14,6 @@ output "eks_cluster_name" {
   value = module.eks.cluster_name
 }
 
-output "tomcat_private_ip" {
-  value = module.tomcat.private_ip
+output "weblogic_private_ip" {
+  value = module.weblogic.private_ip
 }

@@ -28,12 +28,12 @@ variable "instance_type" {
   default = "t3.small"
 }
 
-variable "tomcat_ami_id" {
+variable "weblogic_ami_id" {
   type    = string
   default = "ami-0c02fb55956c7d316"
 }
 
-variable "tomcat_key_name" {
+variable "weblogic_key_name" {
   type = string
 }
 

@@ -30,21 +30,21 @@ resource "aws_security_group" "alb" {
   }
 }
 
-resource "aws_security_group" "tomcat" {
-  name   = "${var.name_prefix}-tomcat-sg"
+resource "aws_security_group" "weblogic" {
+  name   = "${var.name_prefix}-weblogic-sg"
   vpc_id = var.vpc_id
-  description = "Security group for the Tomcat application server"
+  description = "Security group for the WebLogic application server"
 
   ingress {
-    description     = "Allow ALB traffic to Tomcat"
-    from_port       = 8080
-    to_port         = 8080
+    description     = "Allow ALB traffic to WebLogic"
+    from_port       = 7001
+    to_port         = 7001
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
   }
 
   egress {
-    description = "Allow Tomcat to reach internal services"
+    description = "Allow WebLogic to reach internal services"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -58,11 +58,11 @@ resource "aws_security_group" "rds" {
   description = "Security group for the PostgreSQL database"
 
   ingress {
-    description     = "Allow Tomcat to reach PostgreSQL"
+    description     = "Allow WebLogic to reach PostgreSQL"
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.tomcat.id]
+    security_groups = [aws_security_group.weblogic.id]
   }
 
   ingress {

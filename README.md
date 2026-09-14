@@ -40,7 +40,7 @@ cd applications && docker compose up -d --build
     ┌──────────────┐ ┌─────────────  ┐ ┌──────────────────┐
     │   Frontend   │ │   Monolith    │ │   Microservice   │
     │   (Angular)  │ │   (WAR)       │ │   (Spring Boot)  │
-    │   K8s/EKS    │ │ Tomcat/K8s/EKS  │   K8s/EKS        │
+    │   K8s/EKS    │ │ WebLogic/K8s/EKS │   K8s/EKS        │
     └──────────────┘ └───────────--──┘ └──────────────────┘
                            ↓
                     ┌──────────────┐
@@ -54,7 +54,7 @@ cd applications && docker compose up -d --build
 | Layer | LOCAL | UAT | PROD |
 |-------|-------|-----|------|
 | **Frontend** | Container | K8s (nginx) | EKS (nginx) |
-| **Monolith** | Container | Tomcat VM/K8s/EKS   | EC2 Tomcat/K8s/EKS   |
+| **Monolith** | Container | WebLogic VM/K8s/EKS | EC2 WebLogic/K8s/EKS |
 | **Microservice** | Container | K8s (Spring) | EKS (Spring) |
 | **Database** | PostgreSQL Container | PostgreSQL Server | RDS |
 | **Infrastructure** | Docker Compose | EC2 + K8s | EKS + EC2 + RDS + ALB |
@@ -185,7 +185,7 @@ Access Jenkins UI and run:
 | Layer | Technology |
 |-------|-----------|
 | **Frontend** | Angular 16+, Nginx, Docker |
-| **Monolith** | Java Spring, Tomcat, WAR/Docker |
+| **Monolith** | Java Spring, WebLogic, WAR/Docker |
 | **Microservice** | Spring Boot 2.7+, Actuator |
 | **Database** | PostgreSQL 15 |
 | **Containers** | Docker, Docker Compose |

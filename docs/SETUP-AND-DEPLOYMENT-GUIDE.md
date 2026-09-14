@@ -3,7 +3,7 @@
 This guide covers Local Development, UAT deployment, and PROD deployment for the hybrid model:
 
 - Frontend app: Angular + Nginx container
-- Main app: Java WAR on Tomcat
+- Main app: Java WAR on WebLogic
 - Microservice: Spring Boot on Kubernetes
 - Infra: Terraform on AWS
 - Secrets: Vault
@@ -148,8 +148,8 @@ helm upgrade --install microservice-prod infra/helm/charts/microservice \
 Features:
 
 - CI builds all apps, runs Dockerized Trivy scans, pushes to JFrog
-- UAT deploys monolith WAR to Tomcat and deploys frontend + microservice via Kubernetes YAML image substitution
-- PROD deploys monolith WAR to EC2 Tomcat and deploys frontend + microservice to EKS via Kubernetes YAML image substitution
+- UAT deploys monolith WAR to WebLogic and deploys frontend + microservice via Kubernetes YAML image substitution
+- PROD deploys monolith WAR to EC2 WebLogic and deploys frontend + microservice to EKS via Kubernetes YAML image substitution
 - All pipelines generate `reports/**`, archive them, and send email notifications via `emailext`
 
 Jenkins plugin requirement:

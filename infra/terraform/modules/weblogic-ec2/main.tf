@@ -1,4 +1,4 @@
-resource "aws_instance" "tomcat" {
+resource "aws_instance" "weblogic" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
   subnet_id              = var.subnet_id
@@ -19,15 +19,11 @@ resource "aws_instance" "tomcat" {
               #!/bin/bash
               set -eux
               apt-get update -y
-              apt-get install -y openjdk-17-jre wget
-              useradd -m tomcat || true
-              mkdir -p /opt/tomcat
-              cd /tmp
-              wget https://dlcdn.apache.org/tomcat/tomcat-10/v10.1.28/bin/apache-tomcat-10.1.28.tar.gz
-              tar -xzf apache-tomcat-10.1.28.tar.gz
-              cp -R apache-tomcat-10.1.28/* /opt/tomcat/
-              chown -R tomcat:tomcat /opt/tomcat
+              apt-get install -y openjdk-17-jre wget unzip
+              useradd -m weblogic || true
+              mkdir -p /u01/oracle/weblogic
+              chown -R weblogic:weblogic /u01/oracle/weblogic
               EOF
 
-  tags = { Name = "${var.name_prefix}-tomcat" }
+  tags = { Name = "${var.name_prefix}-weblogic" }
 }

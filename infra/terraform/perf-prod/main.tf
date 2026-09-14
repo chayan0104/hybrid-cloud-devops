@@ -19,26 +19,26 @@ module "security" {
   vpc_cidr    = var.vpc_cidr
 }
 
-module "tomcat" {
-  source = "../modules/tomcat-ec2"
+module "weblogic" {
+  source = "../modules/weblogic-ec2"
 
   name_prefix       = local.name_prefix
   subnet_id         = module.network.private_subnet_ids[0]
-  security_group_id = module.security.tomcat_sg_id
+  security_group_id = module.security.weblogic_sg_id
   instance_type     = var.instance_type
-  ami_id            = var.tomcat_ami_id
-  key_name          = var.tomcat_key_name
+  ami_id            = var.weblogic_ami_id
+  key_name          = var.weblogic_key_name
 }
 
 module "alb" {
   source = "../modules/alb"
 
-  name_prefix               = local.name_prefix
-  vpc_id                    = module.network.vpc_id
-  public_subnet_ids         = module.network.public_subnet_ids
-  alb_security_group_id     = module.security.alb_sg_id
-  tomcat_target_instance_id = module.tomcat.instance_id
-  acm_certificate_arn       = var.acm_certificate_arn
+  name_prefix                 = local.name_prefix
+  vpc_id                      = module.network.vpc_id
+  public_subnet_ids           = module.network.public_subnet_ids
+  alb_security_group_id       = module.security.alb_sg_id
+  weblogic_target_instance_id = module.weblogic.instance_id
+  acm_certificate_arn         = var.acm_certificate_arn
 }
 
 module "eks" {

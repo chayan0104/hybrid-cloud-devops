@@ -3,7 +3,7 @@
 Creates:
 
 - Application Load Balancer
-- Target group pointing to Tomcat EC2
+- Target group pointing to WebLogic EC2
 - HTTP listener and forwarding rule
 
 Output: ALB DNS name.

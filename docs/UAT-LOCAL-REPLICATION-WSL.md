@@ -122,7 +122,7 @@ Use `../infra/jenkins/Jenkinsfile-UAT`.
 
 UAT deployment model in pipeline:
 
-- `monolith.war` deploy to Tomcat host
+- `monolith.war` deploy to WebLogic host
 - frontend and microservice deploy to Kubernetes via YAML image substitution
 - microservice reads PostgreSQL credentials from Vault-backed `db-secrets`
 

@@ -14,7 +14,7 @@ Quick reference for DevOps setup and operations. Choose your path:
 
 ---
 
-### Path 2: UAT Environment (Kubernetes + Tomcat VM)
+### Path 2: UAT Environment (Kubernetes + WebLogic VM)
 **Time:** 30-45 minutes  
 **Skills required:** Kubernetes, Terraform basics
 
