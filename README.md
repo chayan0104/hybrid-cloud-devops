@@ -18,11 +18,12 @@ cd applications && docker compose up -d --build
 
 | Document | Purpose |
 |----------|---------|
-| **[QUICK_START.md](QUICK_START.md)** | 5-minute local setup |
-| **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** | Complete project map & navigation |
-| **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** | Common issues & solutions |
-| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | System design & request flows |
-| **[docs/SETUP-AND-DEPLOYMENT-GUIDE.md](docs/SETUP-AND-DEPLOYMENT-GUIDE.md)** | Detailed deployment procedures |
+| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | System design and runtime flow |
+| **[docs/SETUP-AND-DEPLOYMENT-GUIDE.md](docs/SETUP-AND-DEPLOYMENT-GUIDE.md)** | Local, UAT, and PROD deployment procedures |
+| **[docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md)** | Terraform, Jenkins, Vault, and monitoring operations |
+| **[docs/UAT-LOCAL-REPLICATION-WSL.md](docs/UAT-LOCAL-REPLICATION-WSL.md)** | WSL-based local UAT runbook |
+| **[docs/INTERVIEW.md](docs/INTERVIEW.md)** | Interview-ready architecture summary |
+| **[docs/todo.md](docs/todo.md)** | Current work backlog and task list |
 
 ## 🏗️ Architecture Overview
 
@@ -99,7 +100,7 @@ hybrid-cloud-devops/
 └── [Project docs]             ← This README + structure guides
 ```
 
-**→ Full navigation:** [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+**→ Documentation hub:** [docs](docs)
 
 ## 🚀 Key Features
 
