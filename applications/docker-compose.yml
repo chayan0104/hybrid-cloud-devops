@@ -27,11 +27,11 @@ services:
       MICROSERVICE_URL: http://microservice:8081/microservice
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
       JAVA_TOOL_OPTIONS: "-Xms512m -Xmx1024m"
-      DB_HOST: ${POSTGRES_HOST:-postgres-db}
-      DB_PORT: ${POSTGRES_PORT:-5432}
-      DB_NAME: ${POSTGRES_DB:-app_db}
-      DB_USER: ${POSTGRES_USER:-app_user}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-app_password}
+      DB_HOST: ${MYSQL_HOST:-mysql-db}
+      DB_PORT: ${MYSQL_PORT:-3306}
+      DB_NAME: ${MYSQL_DB:-app_db}
+      DB_USER: ${MYSQL_USER:-app_user}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-app_password}
     depends_on:
       microservice:
         condition: service_healthy
@@ -59,15 +59,15 @@ services:
       APP_ENVIRONMENT: local
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
       JAVA_TOOL_OPTIONS: "-Xms256m -Xmx512m"
-      DB_HOST: ${POSTGRES_HOST:-postgres-db}
-      DB_PORT: ${POSTGRES_PORT:-5432}
-      DB_NAME: ${POSTGRES_DB:-app_db}
-      DB_USER: ${POSTGRES_USER:-app_user}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-app_password}
+      DB_HOST: ${MYSQL_HOST:-mysql-db}
+      DB_PORT: ${MYSQL_PORT:-3306}
+      DB_NAME: ${MYSQL_DB:-app_db}
+      DB_USER: ${MYSQL_USER:-app_user}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-app_password}
     ports:
       - "9093:8081"
     depends_on:
-      postgres-db:
+      mysql-db:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8081/microservice/actuator/health || exit 1"]
@@ -83,22 +83,23 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  postgres-db:
-    image: postgres:15
-    container_name: postgres-db
+  mysql-db:
+    image: mysql:8.0
+    container_name: mysql-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-app_db}
-      POSTGRES_USER: ${POSTGRES_USER:-app_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app_password}
+      MYSQL_DATABASE: ${MYSQL_DB:-app_db}
+      MYSQL_USER: ${MYSQL_USER:-app_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-app_password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
       - ../infra/database/init-scripts:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app_user} -d ${POSTGRES_DB:-app_db}"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u ${MYSQL_USER:-app_user} -p${MYSQL_PASSWORD:-app_password} --silent"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
     networks:
       - backend-net
     logging:
@@ -108,7 +109,7 @@ services:
         max-file: "3"
 
 volumes:
-  postgres_data:
+  mysql_data:
 
 networks:
   frontend-net:

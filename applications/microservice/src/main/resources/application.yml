@@ -10,7 +10,7 @@ spring:
   application:
     name: microservice
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:app_db}
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:app_db}?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
     username: ${DB_USER:app_user}
     password: ${DB_PASSWORD:app_password}
     hikari:

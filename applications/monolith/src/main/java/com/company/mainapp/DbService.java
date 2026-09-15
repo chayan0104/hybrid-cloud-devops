@@ -13,17 +13,17 @@ public class DbService {
 
     public DbService() {
         try {
-            Class.forName("org.postgresql.Driver");
+            Class.forName("com.mysql.cj.jdbc.Driver");
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
 
         String host = System.getenv().getOrDefault("DB_HOST", "localhost");
-        String port = System.getenv().getOrDefault("DB_PORT", "5432");
+        String port = System.getenv().getOrDefault("DB_PORT", "3306");
         String db = System.getenv().getOrDefault("DB_NAME", "app_db");
         this.user = System.getenv().getOrDefault("DB_USER", "app_user");
         this.password = System.getenv().getOrDefault("DB_PASSWORD", "app_password");
-        this.jdbcUrl = "jdbc:postgresql://" + host + ":" + port + "/" + db;
+        this.jdbcUrl = "jdbc:mysql://" + host + ":" + port + "/" + db + "?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC";
     }
 
     public Customer findCustomerById(int id) throws SQLException {

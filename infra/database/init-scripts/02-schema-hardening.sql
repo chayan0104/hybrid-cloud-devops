@@ -1,20 +1,10 @@
 ALTER TABLE customers
-  ALTER COLUMN name SET NOT NULL,
-  ALTER COLUMN email SET NOT NULL;
+  MODIFY name VARCHAR(100) NOT NULL,
+  MODIFY email VARCHAR(150) NOT NULL;
 
 ALTER TABLE orders
-  ALTER COLUMN product_name SET NOT NULL,
-  ALTER COLUMN quantity SET NOT NULL;
+  MODIFY product_name VARCHAR(100) NOT NULL,
+  MODIFY quantity INT NOT NULL;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_constraint
-    WHERE conname = 'ck_orders_quantity_positive'
-  ) THEN
-    ALTER TABLE orders
-      ADD CONSTRAINT ck_orders_quantity_positive CHECK (quantity > 0);
-  END IF;
-END
-$$;
+ALTER TABLE orders
+  ADD CONSTRAINT ck_orders_quantity_positive CHECK (quantity > 0);
