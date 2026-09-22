@@ -29,19 +29,19 @@ cd applications && docker compose up -d --build
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                    Users / Browsers                       │
+│                    Users / Browsers                      │
 └──────────────────────────────────────────────────────────┘
                            ↓
 ┌──────────────────────────────────────────────────────────┐
-│              Load Balancer / Ingress                      │
+│              Load Balancer / Ingress                     │
 │          (ALB in PROD, Ingress in K8s)                   │
 └──────────────────────────────────────────────────────────┘
               ↙              ↓              ↘
-    ┌──────────────┐ ┌─────────────  ┐ ┌──────────────────┐
-    │   Frontend   │ │   Monolith    │ │   Microservice   │
-    │   (Angular)  │ │   (WAR)       │ │   (Spring Boot)  │
+    ┌──────────────┐ ┌─────────────  ┐  ┌──────────────────┐
+    │   Frontend   │ │   Monolith    │  │   Microservice   │
+    │   (Angular)  │ │     (WAR)     │  │   (Spring Boot)  │
     │   K8s/EKS    │ │ WebLogic/K8s/EKS │   K8s/EKS        │
-    └──────────────┘ └───────────--──┘ └──────────────────┘
+    └──────────────┘ └───────────--──┘  └──────────────────┘
                            ↓
                     ┌──────────────┐
                     │  PostgreSQL  │
