@@ -1,334 +1,131 @@
-# Hybrid Cloud DevOps Reference Architecture
+# Hybrid Cloud DevOps Reference Project
 
-**Production-grade reference project** demonstrating a modern DevOps architecture with a hybrid delivery model combining containerization, infrastructure as code, CI/CD, and cloud deployment.
+> A portfolio-style hybrid cloud delivery project demonstrating modern DevOps practices across local development, containerization, CI/CD automation, Kubernetes deployment, and AWS infrastructure as code.
 
-## 🎯 Quick Start
+## Overview
 
-**New to the project?** Get running in 5 minutes:
+This repository brings together multiple application and infrastructure layers into a single reference environment:
+
+- Angular frontend application
+- Java-based monolith packaged as a WAR
+- Spring Boot microservice with REST APIs
+- MySQL persistence across local and cloud environments
+- Jenkins pipelines for CI and deployment stages
+- Kubernetes manifests for UAT and production patterns
+- Terraform modules for AWS provisioning and environment setup
+
+This project is designed to showcase real-world infrastructure patterns and DevOps execution flow. It is a strong interview and portfolio project, but it is intentionally documented as a reference implementation rather than a fully production-certified platform.
+
+## Architecture at a glance
+
+| Environment | Runtime | Data layer | Delivery status |
+|---|---|---|---|
+| Local | Docker Compose: Angular, monolith, microservice | MySQL container | Runnable locally |
+| UAT | Kubernetes namespace `enterprise-uat` | External MySQL | Deployment pipeline configured |
+| PROD | EKS frontend + microservice; monolith remains on WebLogic/EC2 | MySQL RDS | Partially automated |
+| Lab stack | Separate `infra/k8s/` reference bundle | MySQL | Reference only |
+
+The single-namespace bundle in `infra/k8s/` is a separate learning stack. The active deployment work is driven by the environment-specific manifests in `infra/kubernetes/`.
+
+## Quick start
+
+### Local development
+
+Prerequisites: Docker Desktop or Docker Engine with Compose enabled.
+
 ```bash
-git clone https://github.com/your-org/hybrid-cloud-devops.git
-cd hybrid-cloud-devops
-cd applications && docker compose up -d --build
-# Open http://localhost:9091 (frontend), http://localhost:9092 (monolith), http://localhost:9093 (microservice)
+cd applications
+docker compose up -d --build
 ```
 
-## 📚 Documentation
+Then access the app:
 
-| Document | Purpose |
-|----------|---------|
-| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | System design and runtime flow |
-| **[docs/SETUP-AND-DEPLOYMENT-GUIDE.md](docs/SETUP-AND-DEPLOYMENT-GUIDE.md)** | Local, UAT, and PROD deployment procedures |
-| **[docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md)** | Terraform, Jenkins, Vault, and monitoring operations |
-| **[docs/UAT-LOCAL-REPLICATION-WSL.md](docs/UAT-LOCAL-REPLICATION-WSL.md)** | WSL-based local UAT runbook |
-| **[docs/INTERVIEW.md](docs/INTERVIEW.md)** | Interview-ready architecture summary |
-| **[docs/todo.md](docs/todo.md)** | Current work backlog and task list |
+- Frontend: `http://localhost:9091`
+- Monolith health: `http://localhost:9092/monolith/health`
+- Microservice health: `http://localhost:9093/microservice/actuator/health`
 
-## 🏗️ Architecture Overview
+Sample checks:
 
-### Components
-
-```
-┌──────────────────────────────────────────────────────────┐
-│                    Users / Browsers                      │
-└──────────────────────────────────────────────────────────┘
-                           ↓
-┌──────────────────────────────────────────────────────────┐
-│              Load Balancer / Ingress                     │
-│          (ALB in PROD, Ingress in K8s)                   │
-└──────────────────────────────────────────────────────────┘
-              ↙              ↓              ↘
-    ┌──────────────┐ ┌─────────────  ┐  ┌──────────────────┐
-    │   Frontend   │ │   Monolith    │  │   Microservice   │
-    │   (Angular)  │ │     (WAR)     │  │   (Spring Boot)  │
-    │   K8s/EKS    │ │ WebLogic/K8s/EKS │   K8s/EKS        │
-    └──────────────┘ └───────────--──┘  └──────────────────┘
-                           ↓
-                    ┌──────────────┐
-                    │  PostgreSQL  │
-                    │   (RDS/VM)/  │
-                    └──────────────┘
-```
-
-### Environment Comparison
-
-| Layer | LOCAL | UAT | PROD |
-|-------|-------|-----|------|
-| **Frontend** | Container | K8s (nginx) | EKS (nginx) |
-| **Monolith** | Container | WebLogic VM/K8s/EKS | EC2 WebLogic/K8s/EKS |
-| **Microservice** | Container | K8s (Spring) | EKS (Spring) |
-| **Database** | PostgreSQL Container | PostgreSQL Server | RDS |
-| **Infrastructure** | Docker Compose | EC2 + K8s | EKS + EC2 + RDS + ALB |
-| **Secrets** | Hardcoded (dev) | Vault | Vault |
-
-### Deployment Pipeline
-
-```
-Source Code (applications/)
-        ↓
-    [CI Pipeline]
-    ├─ Build images
-    ├─ Scan vulnerabilities (Trivy)
-    ├─ Push to registry (JFrog)
-        ↓
-    [UAT Pipeline]
-    ├─ Deploy to UAT Kubernetes
-    ├─ Run validation tests
-        ↓
-    [PROD Pipeline]
-    ├─ Deploy to EKS + EC2
-    ├─ Verify health checks
-```
-
-## 📁 Project Structure
-
-```
-hybrid-cloud-devops/
-├── applications/              ← Source code (local Docker Compose)
-│   ├── frontend-angular/      ← Angular SPA
-│   ├── monolith/              ← Java WAR
-│   └── microservice/           ← Spring Boot
-├── k8s/                        ← Production Kubernetes manifests ✅ CURRENT
-├── infra/
-│   ├── terraform/             ← Infrastructure as Code (AWS)
-│   ├── jenkins/               ← CI/CD pipelines
-│   ├── vault/                 ← Secret management
-│   ├── monitoring/            ← Prometheus, Grafana, New Relic
-│   └── kubernetes/            ← ⚠️ DEPRECATED (use k8s/ instead)
-├── docs/                       ← Comprehensive documentation
-└── [Project docs]             ← This README + structure guides
-```
-
-**→ Documentation hub:** [docs](docs)
-
-## 🚀 Key Features
-
-### Production-Grade Kubernetes
-- ✅ **Security**: RBAC, NetworkPolicies, Pod security contexts, seccomp
-- ✅ **High Availability**: Pod anti-affinity, disruption budgets, multi-replicas
-- ✅ **Autoscaling**: HPA (CPU/Memory) + optional VPA
-- ✅ **Deployment Strategies**: Rolling updates, canary, blue-green
-- ✅ **Observability**: Prometheus ServiceMonitor, PrometheusRules, alerts
-- ✅ **Resource Management**: Realistic CPU/memory limits, startup probes
-
-### Infrastructure as Code
-- ✅ **Terraform Modules**: Reusable, environment-agnostic
-- ✅ **Multi-Environment**: PROD, PERF-PROD, UAT, LOCAL
-- ✅ **AWS Resources**: VPC, Security Groups, ALB, EKS, RDS, EC2
-- ✅ **State Management**: Remote state backend with locking
-
-### CI/CD Pipelines
-- ✅ **Multi-stage**: CI → UAT → PROD
-- ✅ **Automation**: Build, scan, test, deploy
-- ✅ **Validation**: Health checks, smoke tests
-- ✅ **Secrets**: Vault integration for sensitive data
-
-### Observability
-- ✅ **Monitoring**: Prometheus metrics + Grafana dashboards
-- ✅ **Alerting**: PrometheusRules with threshold-based alerts
-- ✅ **Logging**: Centralized logs via Prometheus + Grafana
-- ✅ **Tracing**: Optional New Relic integration
-
-## 🔄 Quick Commands
-
-### Local Development
 ```bash
-# Start local stack
-cd applications && docker compose up -d --build
-
-# Verify services
-curl http://localhost:9091                      # Frontend
-curl http://localhost:9092/monolith/health      # Monolith
-curl http://localhost:9093/microservice/health  # Microservice
-
-# View logs
-docker compose logs -f
-
-# Stop
-docker compose down
+curl http://localhost:9092/monolith/health
+curl http://localhost:9093/microservice/actuator/health
+curl http://localhost:9093/microservice/api/status
+curl http://localhost:9092/monolith/api/customer-summary/1
 ```
 
-### Kubernetes Deployment
-```bash
-# Deploy all components
-kubectl apply -f k8s/
+> Local Compose uses development-level defaults and should not be reused outside local experimentation.
 
-# Check status
-kubectl get all -n enterprise-app
-kubectl rollout status deployment/microservice -n enterprise-app
+## Repository structure
 
-# View logs
-kubectl logs -f deployment/microservice -n enterprise-app
+| Path | Purpose |
+|---|---|
+| `applications/` | Angular app, Java monolith, microservice, and Compose stack |
+| `infra/jenkins/` | CI, UAT, and PROD Jenkins pipelines |
+| `infra/kubernetes/` | Environment-specific UAT and PROD Kubernetes manifests |
+| `infra/k8s/` | separate single-namespace lab/reference stack |
+| `infra/terraform/` | AWS infrastructure modules and environment configurations |
+| `infra/database/` | MySQL init scripts and schema setup |
+| `infra/vault/` | Vault policies and setup helpers |
+| `infra/monitoring/` | Prometheus, Grafana, Alertmanager, and observability examples |
+| `docs/` | Architecture, deployment, interview, and operational notes |
 
-# Port forward for local testing
-kubectl port-forward -n enterprise-app svc/microservice 8081:80
-```
+## Delivery flow
 
-### Infrastructure Provisioning
-```bash
-# Initialize Terraform
-cd infra/terraform/prod
+1. `Jenkinsfile-CI` builds the frontend and Java artifacts, scans them, tags images with the Jenkins build number, and publishes them to JFrog Artifactory.
+2. `Jenkinsfile-UAT` applies the UAT deployment manifests to Kubernetes and validates health and rollout expectations.
+3. `Jenkinsfile-PROD` deploys the frontend and microservice to EKS, while the Java WAR remains outside the automated EKS path and is handled separately.
+
+Required pipeline configuration includes JFrog and environment-specific credential values documented in [infra/jenkins/README.md](infra/jenkins/README.md).
+
+## Infrastructure layer
+
+Terraform modules define reusable AWS resources, including:
+
+- VPC and networking
+- Security groups
+- ALB and WebLogic EC2 resources
+- EKS configuration
+- MySQL RDS provisioning
+
+Example validation flow:
+
+```powershell
+Set-Location infra/terraform/prod
+Copy-Item terraform.tfvars.example terraform.tfvars
 terraform init
-
-# Plan & Apply
-terraform plan
-terraform apply
+terraform validate
+terraform plan -var-file=terraform.tfvars
 ```
 
-### Jenkins Deployment
-Access Jenkins UI and run:
-1. **Jenkinsfile-CI** → Build & scan code
-2. **Jenkinsfile-UAT** → Deploy to UAT
-3. **Jenkinsfile-PROD** → Deploy to PROD
+Never commit `terraform.tfvars` or real credentials to source control.
 
-## 📊 Technology Stack
+## Current status
 
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | Angular 16+, Nginx, Docker |
-| **Monolith** | Java Spring, WebLogic, WAR/Docker |
-| **Microservice** | Spring Boot 2.7+, Actuator |
-| **Database** | PostgreSQL 15 |
-| **Containers** | Docker, Docker Compose |
-| **Orchestration** | Kubernetes, EKS |
-| **IaC** | Terraform, AWS |
-| **CI/CD** | Jenkins, Groovy |
-| **Secrets** | HashiCorp Vault |
-| **Monitoring** | Prometheus, Grafana, New Relic |
-| **Scanning** | Trivy (container), SonarQube (code) |
+This project demonstrates a realistic delivery pipeline and cloud architecture mindset, but is intentionally documented with clear boundaries:
 
-## 📋 Production Checklist
+- WebLogic WAR deployment is still manual
+- Vault integration is not fully wired into Jenkins workflows
+- Production-grade ingress, remote state, and secret hardening still need follow-through
+- This is a portfolio/reference implementation, not a fully production-certified deployment
 
-- [x] Kubernetes manifests with RBAC & NetworkPolicies
-- [x] Pod Disruption Budgets for HA
-- [x] HPA autoscaling (CPU & memory)
-- [x] Prometheus monitoring + alerts
-- [x] Deployment strategies (rolling, canary, blue-green)
-- [x] Vault for secrets management
-- [x] Terraform IaC for infrastructure
-- [x] Jenkins multi-stage CI/CD pipelines
-- [x] Comprehensive documentation
-- [x] Graceful shutdown & health probes
-- [x] Resource requests/limits on all workloads
-- [x] Regular backups (PostgreSQL)
+## Project documentation
 
-## 🔐 Security Features
+- [Architecture and current implementation status](docs/ARCHITECTURE.md)
+- [Setup and deployment guide](docs/SETUP-AND-DEPLOYMENT-GUIDE.md)
+- [Infrastructure and operations](docs/INFRASTRUCTURE.md)
+- [Interview preparation notes](docs/INTERVIEW.md)
+- [WSL2 UAT replication guide](docs/UAT-LOCAL-REPLICATION-WSL.md)
+- [Jenkins pipeline documentation](infra/jenkins/README.md)
+- [Known work items and backlog](docs/todo.md)
 
-- ✅ Non-root containers with dropped capabilities
-- ✅ Network policies (default deny, allow from ingress)
-- ✅ RBAC with limited service account permissions
-- ✅ Secrets in Vault (not in code or configs)
-- ✅ TLS termination on Ingress
-- ✅ Container image scanning (Trivy)
-- ✅ Code scanning (SonarQube)
-- ✅ Security group rules (Terraform)
+## Interview positioning
 
-## 🚨 Need Help?
+When discussing this project in interviews, frame it as a realistic DevOps portfolio project that shows breadth across:
 
-| Issue | Resource |
-|-------|----------|
-| **Getting Started** | [QUICK_START.md](QUICK_START.md) |
-| **Find Files** | [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) |
-| **Common Issues** | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
-| **System Design** | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| **Deployment Steps** | [docs/SETUP-AND-DEPLOYMENT-GUIDE.md](docs/SETUP-AND-DEPLOYMENT-GUIDE.md) |
-| **Local Development** | [docs/UAT-LOCAL-REPLICATION-WSL.md](docs/UAT-LOCAL-REPLICATION-WSL.md) |
-| **Q&A / Exercises** | [docs/INTERVIEW.md](docs/INTERVIEW.md) |
+- application packaging and runtime flow
+- environment separation and deployment strategy
+- infrastructure-as-code and cloud design
+- automation and operations discipline
+- security, configuration, and deployment awareness
 
-## 📝 Document Conventions
-
-- 📖 **README.md**: Overview & quick reference
-- 📋 **QUICK_START.md**: 5-minute setup
-- 📍 **PROJECT_STRUCTURE.md**: File navigation
-- 🔧 **TROUBLESHOOTING.md**: Common issues & fixes
-- 📚 **docs/**: Detailed technical documentation
-- 📑 **Component README.md**: Service-specific guides
-
-## 🔄 Workflows
-
-### 1. Local Development
-```
-Code → Docker Compose → http://localhost:9091/9092/9093 → Verify
-```
-
-### 2. UAT Deployment
-```
-Code → Jenkins CI → Jenkins UAT → Kubernetes (UAT) → Validate
-```
-
-### 3. PROD Deployment
-```
-Code → Jenkins CI → Jenkins PROD → EKS + EC2 + RDS → Verify Health
-```
-
-## 📈 Scaling
-
-### Horizontal Scaling
-- Frontend: HPA scales 1-5 replicas
-- Microservice: HPA scales 3-10 replicas (CPU 70%, Memory 80%)
-- Monolith: Manual scaling on EC2
-
-### Vertical Scaling
-- Database: RDS performance class changes
-- Compute: EC2 instance type upgrades
-- Memory: Kubernetes node scaling
-
-## 🔍 Monitoring & Observability
-
-### Metrics & Alerts
-- Application metrics via Prometheus
-- Infrastructure metrics from CloudWatch (AWS)
-- Custom alerts via PrometheusRules
-- Dashboard in Grafana
-
-### Logs
-- Kubernetes: `kubectl logs -f <pod>`
-- Container: `docker compose logs -f`
-- Centralized: CloudWatch Logs or ELK
-
-### Debugging
-```bash
-# Pod issues
-kubectl describe pod <pod-name> -n enterprise-app
-
-# Logs
-kubectl logs <pod-name> -n enterprise-app
-
-# Exec into pod
-kubectl exec -it <pod-name> -n enterprise-app -- /bin/sh
-
-# Port forward
-kubectl port-forward svc/<service> 8080:80 -n enterprise-app
-```
-
-## 🎓 Learning Resources
-
-1. **Kubernetes**: [Official docs](https://kubernetes.io/docs/)
-2. **Terraform**: [Official docs](https://www.terraform.io/docs/)
-3. **Docker**: [Official docs](https://docs.docker.com/)
-4. **Spring Boot**: [Official docs](https://spring.io/projects/spring-boot)
-5. **Prometheus**: [Official docs](https://prometheus.io/docs/)
-
-## 📞 Support
-
-- **Documentation**: Start with [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
-- **Issues**: Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-- **Architecture**: Review [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- **Deployment**: Follow [docs/SETUP-AND-DEPLOYMENT-GUIDE.md](docs/SETUP-AND-DEPLOYMENT-GUIDE.md)
-
-## 📄 License
-
-This is a reference architecture project. Use as a template for your organization's projects.
-
----
-
-**Ready to start?** → [QUICK_START.md](QUICK_START.md)
-
-**Want details?** → [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
-
-**Having issues?** → [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-
-- Full setup: `docs/SETUP-AND-DEPLOYMENT-GUIDE.md`
-- Architecture: `docs/ARCHITECTURE.md`
-- Infra master guide: `infra/INFRASTRUCTURE.md`
-- Infra navigation: `infra/setup.md`
-- WSL2 UAT replication: `docs/UAT-LOCAL-REPLICATION-WSL.md`
+Be explicit about what is implemented versus what remains a future hardening step. That distinction makes the project sound more credible and professional.

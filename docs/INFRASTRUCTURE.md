@@ -1,155 +1,74 @@
-# Infrastructure and Operations Guide
+# Infrastructure and Operations
 
-This page consolidates the main infrastructure, platform, and deployment operational guidance for the project.
+This guide describes implemented infrastructure assets and the configuration still required to operate them. A checked-in manifest or Terraform module is not evidence that a live environment has been deployed.
 
-## 1. Environment model
+## Source of Truth
 
-The repository supports a hybrid deployment model across local, UAT, and production environments:
+| Concern | Repository location | Current role |
+|---|---|---|
+| Local application | `applications/docker-compose.yml` | Angular, Java monolith, Spring Boot microservice, and MySQL |
+| UAT workloads | `infra/kubernetes/uat/` | Three application workloads in `enterprise-uat` |
+| PROD workloads | `infra/kubernetes/prod/` | Frontend and microservice in `enterprise-prod`; monolith manifests are not applied by PROD Jenkins |
+| Kubernetes lab | `infra/k8s/` | Separate single-namespace reference bundle; not used by UAT/PROD jobs |
+| AWS infrastructure | `infra/terraform/` | VPC, security groups, ALB, WebLogic EC2, EKS, MySQL RDS |
+| CI/CD | `infra/jenkins/` | Builds/scans/publishes images and deploys UAT/PROD Kubernetes workloads |
+| Database schema | `infra/database/init-scripts/` | MySQL schema and sample data |
+| WebLogic helper | `infra/scripts/deploy-war.sh` | Manual SSH-based WAR copy/restart helper |
 
-- Local: Docker Compose for application components
-- UAT: Kubernetes + WebLogic VM workloads, Jenkins-driven deployment
-- PROD: AWS infrastructure via Terraform + Kubernetes/EKS + EC2 + RDS
-- PERF-PROD: pre-production validation environment using the same patterns as PROD
+## Jenkins Configuration
 
-## 2. Infrastructure as Code
+Configure the following values in Jenkins. Do not put credentials in pipeline parameters or repository files.
 
-Terraform is the canonical infrastructure provisioning mechanism for AWS resources.
+Global environment:
 
-Common modules:
+- `JFROG_SERVER`: registry hostname only, without `https://`
+- `JFROG_DOCKER_REPO`: JFrog Docker repository key
 
-- `infra/terraform/modules/network`
-- `infra/terraform/modules/security`
-- `infra/terraform/modules/alb`
-- `infra/terraform/modules/weblogic-ec2`
-- `infra/terraform/modules/eks`
-- `infra/terraform/modules/rds`
+Credentials:
 
-Environment stacks:
+- `jfrog-creds`: username/password with image push and pull permission
+- `uat-mysql-credentials`: UAT MySQL username/password
+- `prod-mysql-credentials`: PROD MySQL username/password
+- `sonarqube-token`: SonarQube token for CI
 
-- `infra/terraform/prod`
-- `infra/terraform/perf-prod`
-- `infra/terraform/bootstrap-state`
+The `Jenkinsfile-UAT` job also requires `IMAGE_TAG`, `DB_HOST`, `DB_PORT`, and `DB_NAME`. The `Jenkinsfile-PROD` job additionally requires `MONOLITH_UPSTREAM`, the WebLogic ALB URL including scheme. CI tags images with the Jenkins build number; deploy that exact tag.
 
-Typical flow:
+Pipeline secret retrieval from Vault is not implemented. Vault setup and policies exist under `infra/vault/`, but the current jobs use Jenkins credentials. Rendered database Secrets exist temporarily in the workspace during deployment; ensure workspace isolation and cleanup.
 
-```bash
-cd infra/terraform/prod
-terraform init
-terraform plan
-terraform apply
-```
+## Terraform
 
-## 3. Kubernetes and deployment manifests
+PROD and PERF-PROD compose reusable modules. MySQL RDS is private and allows port 3306 only from the WebLogic and EKS security groups.
 
-The app stack is represented in the consolidated manifests under:
+The environment stacks currently have no remote backend configuration. Terraform state is local by default and includes the RDS password. Before shared or production use, configure encrypted remote state with locking/access control and rotate any secret that may have been stored in local state.
 
-- `k8s/`
-- `infra/kubernetes/` (legacy/reference)
-- `infra/helm/` and `infra/helm/charts/` (Helm-based deployment options)
+Review `terraform.tfvars.example` before copying it to a local `terraform.tfvars`. The example contains placeholder account/IAM values and is not deployable as-is.
 
-Core deployment resources include:
+## Kubernetes and Routing
 
-- namespace
-- configmaps
-- ingress
-- frontend
-- monolith
-- microservice
-- PostgreSQL
-- monitoring resources
+UAT and PROD Jenkins jobs use environment-specific YAML under `infra/kubernetes/`. The frontend Nginx container proxies `/monolith/` and `/microservice/` to configured upstreams. PROD requires the WebLogic ALB URL at deploy time.
 
-Example:
+The repository does not configure a public EKS ingress/load balancer for the frontend. The Terraform ALB target group is wired to WebLogic, not to the EKS frontend. Production access to the frontend therefore remains an infrastructure task.
 
-```bash
-kubectl apply -f k8s/
-kubectl rollout status deployment/microservice -n enterprise-app
-```
+The `infra/k8s/` directory is a separate single-namespace lab stack; avoid applying it to the production cluster.
 
-## 4. Secrets and Vault
+## CI and Release Controls
 
-HashiCorp Vault is used for environment and app secrets instead of storing credentials in the repository.
+CI builds the Angular bundle, monolith WAR/container, and microservice container, runs code/dependency/IaC/image scans, and publishes container images to JFrog. The WAR is archived in Jenkins rather than published to a JFrog generic repository.
 
-Key areas:
+Some scan commands are report-only (`|| true` or Trivy `--exit-code 0`). Treat reports as advisory until explicit severity thresholds and fail-build behavior are agreed. The PROD pipeline deploys EKS services and checks microservice health; the WebLogic WAR is a separate manual deployment.
 
-- `infra/vault/VAULT_SETUP.md`
-- `infra/vault/vault-policies.hcl`
-- `infra/vault/vault-secrets-setup.sh`
+## Monitoring
 
-Common pattern:
+Prometheus, Grafana, Alertmanager, New Relic, and Kubernetes alert examples live under `infra/monitoring/` and `infra/k8s/monitoring/`. They are configuration examples; central log aggregation and live alert delivery are not established by these files alone.
 
-- Store shared and environment-specific secret paths in Vault
-- Inject credentials at deploy time into Kubernetes secrets or runtime config
-- Keep sensitive values out of Git and manifests
-
-## 5. CI/CD and Jenkins
-
-The project includes Jenkins pipelines for multi-stage delivery:
-
-- `infra/jenkins/Jenkinsfile-CI`
-- `infra/jenkins/Jenkinsfile-UAT`
-- `infra/jenkins/Jenkinsfile-PROD`
-
-CI responsibilities:
-
-- build frontend, monolith, and microservice artifacts
-- run code and image security scans
-- publish Docker images and WARs to the registry/artifact store
-
-UAT and PROD responsibilities:
-
-- deploy application images or artifacts to the correct runtime
-- validate health and rollout status
-- support rollback to a prior image/version
-
-## 6. Monitoring and observability
-
-Monitoring resources are organized under:
-
-- `infra/monitoring/`
-- `infra/monitoring/prometheus/`
-- `infra/monitoring/alertmanager/`
-- `infra/monitoring/newrelic/`
-
-Typical stack:
-
-- Prometheus for metrics collection
-- Alertmanager for notification routing
-- Grafana for dashboards
-- New Relic for optional APM/integration
-
-## 7. Local bootstrap and Docker setup
-
-For local development and a laptop UAT-style laboratory:
+## Operational Checks
 
 ```bash
-cd applications
-docker compose up -d --build
+docker compose -f applications/docker-compose.yml config
+kubectl config current-context
+kubectl get all -n enterprise-uat
+kubectl get all -n enterprise-prod
+terraform -chdir=infra/terraform/prod validate
 ```
 
-For a full local stack with Jenkins + Docker + Kind + WSL2:
-
-```bash
-sudo apt update
-sudo apt install -y curl git jq unzip openjdk-17-jdk maven
-```
-
-Additional setup references:
-
-- `infra/tools/DOCKER_LOCAL_SETUP.md`
-- `infra/tools/BOOTSTRAP.md`
-- `infra/scripts/TOOLING-READINESS-MATRIX.md`
-
-## 8. Operations checklist
-
-- Validate Terraform state and environment variables before apply
-- Ensure Vault access and policies are ready before deployment
-- Verify Docker images, tags, and registry auth for CI/CD
-- Run health checks after each promotion
-- Prepare rollback procedures before deploying to PROD
-- Keep monitoring and alert thresholds reviewed for service level risk
-
-## 9. Where to look next
-
-- [README.md](../README.md)
-- [ARCHITECTURE.md](ARCHITECTURE.md)
-- [SETUP-AND-DEPLOYMENT-GUIDE.md](SETUP-AND-DEPLOYMENT-GUIDE.md)
+Use the correct Kubernetes context before any apply or rollback. Review Terraform plans and state handling before provisioning resources that can incur cost.

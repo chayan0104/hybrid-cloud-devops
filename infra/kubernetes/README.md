@@ -1,57 +1,24 @@
-# Kubernetes Manifests
+# Environment-Specific Kubernetes Manifests
 
 Location: `infra/kubernetes/`
 
-## Layout Goal
-
-UAT and PROD now use the same core app manifest layout even though UAT runs on `kind` and PROD runs on EKS. The cluster changes, but the app YAML shape stays the same.
+These manifests are the input to the UAT/PROD Jenkins deployment jobs. They contain image and environment placeholders and should not be applied unchanged.
 
 ## Environments
 
-- `uat/`: frontend, microservice, and monolith in `enterprise-uat`
-- `prod/`: frontend, microservice, and monolith in `enterprise-prod` plus canary and blue-green variants
-- `perf-prod/`: frontend and microservice in `enterprise-perf-prod`
+- `uat/`: frontend, monolith, and microservice in namespace `enterprise-uat`; intended for a UAT Kubernetes cluster such as kind.
+- `prod/`: frontend and microservice in namespace `enterprise-prod`; Jenkins does not apply the monolith manifests because PROD keeps the WAR on WebLogic/EC2. Canary/blue-green examples are not automated by the pipeline.
+- `perf-prod/`: frontend and microservice references in namespace `enterprise-perf-prod`; no Jenkins pipeline currently targets this folder.
 
-## Core App Pattern
+Backend manifests consume MySQL connection settings from Kubernetes Secrets. UAT and PROD Jenkins jobs render the secret values from their Jenkins credential bindings. Vault is not currently connected to these jobs.
 
-Each backend app keeps its own YAML files:
+## Pipeline Use
 
-- `microservice-configmap.yaml`
-- `microservice-secret.yaml`
-- `microservice-deployment.yaml`
-- `microservice-service.yaml`
-- `microservice-hpa.yaml`
-- `monolith-configmap.yaml`
-- `monolith-secret.yaml`
-- `monolith-deployment.yaml`
-- `monolith-service.yaml`
+- UAT job: `infra/jenkins/Jenkinsfile-UAT`
+- PROD job: `infra/jenkins/Jenkinsfile-PROD`
 
-Frontend keeps:
+Both jobs require an immutable `IMAGE_TAG` published by CI and a Kubernetes context for the correct environment. PROD also requires the WebLogic ALB upstream used by the frontend proxy.
 
-- `frontend-deployment.yaml`
-- `frontend-service.yaml`
+## Validation
 
-## Secret Handling
-
-Secret templates are committed without values. Jenkins renders the real values into temporary `*.rendered.yaml` files during deployment, so the same manifest model works on both `kind` and EKS.
-
-## Quick Commands
-
-```bash
-kubectl apply -f infra/kubernetes/uat/
-kubectl apply -f infra/kubernetes/prod/
-kubectl apply -f infra/kubernetes/perf-prod/
-```
-
-## Rollout Verification
-
-```bash
-kubectl rollout status deployment/microservice -n enterprise-uat
-kubectl rollout status deployment/monolith -n enterprise-uat
-kubectl rollout status deployment/frontend -n enterprise-uat
-```
-
-## Related
-
-- Helm path: `infra/helm/README.md`
-- CI/CD: `infra/jenkins/README.md`
+The repository includes no active cluster context by default. Before deployment, inspect the rendered manifests and use a cluster with the required namespace permissions, registry pull secret, MySQL connectivity, and policy configuration. Do not use a raw directory apply while image placeholders remain unresolved.

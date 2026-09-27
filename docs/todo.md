@@ -1,30 +1,33 @@
-Critical Gaps
-Issue	Impact	Quick Fix
-No Pod Security Context in K8s manifests	Containers run as root; 
-filesystem writable	Add runAsNonRoot: true, 
-readOnlyRootFilesystem: true to all pods
-No NetworkPolicy in Kubernetes	Uncontrolled inter-pod communication	
-Implement zero-trust pod-to-pod policies
-No Kubernetes RBAC visible	Over-privileged service accounts	
-Define minimal ClusterRoles/RoleBindings
-No Container Runtime Verification	
-Unsigned images; no admission control	
-Add Cosign signing + Kyverno policy engine
-No Secrets Rotation Policy	
-Stale credentials exposed	
-Configure Vault dynamic credentials with TTL
+# Verified Backlog
 
-🟡 Medium Gaps
-No mTLS between services — monolith↔microservice unencrypted
-No Pod Security Standards enforcement — missing pod-security.kubernetes.io labels
-Limited Vault hardening — no audit logging, encryption-at-rest visibility
-No SBOM/Provenance tracking — supply chain security incomplete
-Incomplete deployment verification — no post-deploy smoke tests or canary automation
+Items are based on the checked-in implementation, not aspirational feature claims.
 
-📋 Maturity Profile
-✅ Suitable for: Startups, non-critical internal apps, early-stage DevOps teams
-⚠️ Needs hardening for: Finance, healthcare, SOC 2 Type II compliance
-🚀 Priority fixes (2–3 days): Kubernetes securityContext, NetworkPolicy, PSS, Vault audit logging
+## Release Blockers
 
+- Add and validate public ingress/load-balancer routing to the PROD EKS frontend; Terraform currently wires the ALB to WebLogic only.
+- Decide and implement a secure Terraform remote backend with encryption, locking, access control, and recovery procedures.
+- Validate the WebLogic WAR helper against the actual server/service layout; then decide whether Jenkins should automate this step.
+- Confirm EKS-to-MySQL-RDS networking and application credential rotation in a representative environment.
+- Validate the converted single-pod MySQL lab against a disposable cluster, including schema initialization and NetworkPolicy connectivity; use managed RDS for shared environments.
 
-implement githubrepo or jfrog repo in ci pipeline
+## Pipeline Hardening
+
+- Make approved scan thresholds blocking; several current scans are report-only.
+- Add a tested smoke/integration test stage for the customer-summary flow and database-backed order endpoints.
+- Ensure deploy jobs can only promote artifacts produced by the approved CI run and environment; validate JFrog permissions and image retention.
+- Review secret rendering/workspace cleanup and replace temporary Kubernetes Secret YAML with the chosen production secret integration.
+- Add deployment health checks for the full frontend-to-monolith-to-microservice route.
+
+## Infrastructure and Operations
+
+- Enable RDS encryption, backups/retention, deletion protection, and production-appropriate availability after requirements and budget approval.
+- Add deployment validation for the EKS frontend ingress and the WebLogic ALB health check.
+- Review IAM roles, security groups, Pod Security Standards, NetworkPolicies, and least-privilege service accounts across the environment-specific manifests.
+- Define tested database backup/restore, disaster recovery, and rollback procedures.
+- Pin/refresh base images and dependencies through a documented update cadence; generate SBOM/provenance if required by the target role.
+
+## Portfolio Polish
+
+- Add evidence from an actual successful local Compose run and, if available, a disposable Kubernetes/AWS deployment.
+- Include pipeline screenshots or sanitized reports only after a real run; do not invent performance or availability metrics.
+- Tailor the summary and interview examples to the resume once it is available.

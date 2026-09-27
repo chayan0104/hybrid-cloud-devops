@@ -1,60 +1,56 @@
-# Jenkins CI/CD - Setup and Operations
+# Jenkins CI/CD Setup
 
-Location: `infra/jenkins/`
+## Pipelines
 
-## Files
+- `Jenkinsfile-CI`: builds Angular, the monolith WAR/container, and the microservice; runs scans; publishes container images to JFrog.
+- `Jenkinsfile-UAT`: deploys frontend, monolith, and microservice to `enterprise-uat` using `infra/kubernetes/uat/`.
+- `Jenkinsfile-PROD`: deploys frontend and microservice to `enterprise-prod` using `infra/kubernetes/prod/`; the monolith WAR remains a separate manual WebLogic deployment.
 
-- `Jenkinsfile-CI`: build, test, scan, publish artifacts/images
-- `Jenkinsfile-UAT`: deploy frontend + microservice to K8s and monolith WAR to UAT WebLogic VM
-- `Jenkinsfile-PROD`: deploy frontend + microservice to EKS and monolith WAR to EC2 WebLogic
+## Jenkins Configuration
 
-## Required Jenkins Plugins
+Global environment values:
 
-- Pipeline
-- Git
-- Credentials Binding
-- Email Extension (`emailext`)
+- `JFROG_SERVER`: registry hostname only, without `http://` or `https://`
+- `JFROG_DOCKER_REPO`: JFrog Docker repository key
+- `DEVOPS_NOTIFY_EMAIL`: notification recipient for pipeline reports
+- `SONAR_HOST_URL`: SonarQube URL reachable from the CI agent when code scans are enabled
 
-## Required Credentials
+Credentials:
 
-- `vault-approle` (username/password format for role id/secret id)
-- `sonarqube-token` (secret text for SonarQube analysis)
+- `jfrog-creds`: username/password with push and pull access to the Docker repository
+- `uat-mysql-credentials`: UAT MySQL username/password
+- `prod-mysql-credentials`: production MySQL username/password
+- `sonarqube-token`: SonarQube token
 
-## Pipeline Reports
+The `vault-approle` credential is not consumed by these pipelines. Vault policies/setup are examples only; do not describe the current pipeline as retrieving secrets from Vault.
 
-Each pipeline generates `reports/**`, archives it, and sends email with attachments.
+Install Jenkins Pipeline, Git, Credentials Binding, and Email Extension plugins. Configure SMTP for `emailext`.
 
-CI also includes:
+Linux agents require Docker, Java/JDK 25, Maven, Node.js/npm, `kubectl`, `curl`, `base64`, and `mktemp`. CI invokes Trivy, tfsec, Checkov, and Gitleaks as Docker containers. Deployment agents also need a configured Kubernetes context with namespace permissions.
 
-- SonarQube analysis (monolith and microservice)
-- Dependency audits (`npm audit` and OWASP dependency-check)
-- IaC security scans (`tfsec` and `checkov`)
-- Secret leak scanning (`gitleaks`)
+## Job Inputs
 
-## Typical Setup
+CI produces images tagged with the Jenkins build number. Deploy that exact build number as `IMAGE_TAG`.
 
-1. Create 3 pipeline jobs mapped to the 3 Jenkinsfiles.
-2. Ensure agent has Docker, kubectl, helm, vault, java, maven, node.
-3. Configure SMTP in Jenkins for `emailext`.
-4. Trigger CI from SCM webhook, trigger UAT/PROD by release flow.
+UAT job inputs:
 
-## Local Host Sizing
+- `IMAGE_TAG`, `DB_HOST`, `DB_PORT` (3306), and `DB_NAME` (default `app_db`)
+- A cluster/context that targets the UAT cluster
 
-If Jenkins is running locally on a Windows 11 + WSL2 laptop alongside Docker Desktop, SonarQube, PostgreSQL, a registry, VS Code, and Chrome:
+PROD job inputs:
 
-- Expect roughly 11-14 GB total RAM usage
-- Keep 2-3 GB RAM headroom free
-- 16 GB RAM is the recommended baseline for a stable developer setup
+- `IMAGE_TAG`, `DB_HOST` (RDS endpoint), `DB_PORT` (3306), and `DB_NAME` (`app_db`)
+- `MONOLITH_UPSTREAM`: WebLogic ALB URL including scheme; the frontend Nginx proxy uses it for `/monolith/`
+- A cluster/context that targets EKS
 
-For the detailed breakdown, see `../../docs/UAT-LOCAL-REPLICATION-WSL.md`.
+Deployment jobs create a namespace-scoped `jfrog-registry` pull secret and render temporary application Secret YAML. The latter uses shell substitution; avoid passwords containing the substitution delimiter and use isolated, ephemeral agents where possible.
 
+## Pipeline Behavior and Limits
 
-Start Sonar:
+- CI archives the monolith WAR in Jenkins; it does not publish the WAR to a JFrog generic repository.
+- PROD validates EKS rollouts and the microservice actuator health endpoint. It does not deploy or validate the WebLogic WAR.
+- UAT/PROD rollback performs Kubernetes revision rollback for deployed workloads; it does not roll back database schema or WebLogic releases.
+- Several security scans are report-only (`|| true` or Trivy `--exit-code 0`) and do not currently block a release.
+- The repository does not define a public EKS ingress for the frontend.
 
-docker run -d \
-  --name sonarqube \
-  -p 9090:9000 \
-  -v sonarqube_data:/opt/sonarqube/data \
-  -v sonarqube_extensions:/opt/sonarqube/extensions \
-  -v sonarqube_logs:/opt/sonarqube/logs \
-  sonarqube:lts-community
+See [the deployment guide](../../docs/SETUP-AND-DEPLOYMENT-GUIDE.md) for environment setup and [the interview guide](../../docs/INTERVIEW.md) for an accurate project walkthrough.

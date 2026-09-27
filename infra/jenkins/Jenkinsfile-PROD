@@ -2,21 +2,19 @@ pipeline {
   agent any
 
   environment {
-    IMAGE_REGISTRY = 'mechayan97'
+    IMAGE_REGISTRY = "${env.JFROG_SERVER}/${env.JFROG_DOCKER_REPO}"
     MICROSERVICE_IMAGE_REPO = "${IMAGE_REGISTRY}/microservice"
-    MONOLITH_IMAGE_REPO = "${IMAGE_REGISTRY}/monolith"
     FRONTEND_IMAGE_REPO = "${IMAGE_REGISTRY}/frontend-angular"
-    APP_NAMESPACE = 'enterprise-app'
-    EMAIL_TO = 'chayansamanta8@gmail.com'
+    APP_NAMESPACE = 'enterprise-prod'
+    EMAIL_TO = "${env.DEVOPS_NOTIFY_EMAIL}"
   }
 
   parameters {
-    string(name: 'IMAGE_TAG', defaultValue: 'latest', description: 'Image tag to deploy')
-    string(name: 'DB_HOST', defaultValue: 'postgres.enterprise-app.svc.cluster.local', description: 'Database host')
-    string(name: 'DB_PORT', defaultValue: '5432', description: 'Database port')
+    string(name: 'IMAGE_TAG', defaultValue: '', description: 'Immutable image tag to deploy')
+    string(name: 'MONOLITH_UPSTREAM', defaultValue: '', description: 'WebLogic ALB URL including scheme, for example http://internal-alb.example')
+    string(name: 'DB_HOST', defaultValue: '', description: 'MySQL RDS endpoint')
+    string(name: 'DB_PORT', defaultValue: '3306', description: 'MySQL port')
     string(name: 'DB_NAME', defaultValue: 'app_db', description: 'Database name')
-    string(name: 'DB_USER', defaultValue: 'app_user', description: 'Database user')
-    password(name: 'DB_PASSWORD', defaultValue: 'app_password', description: 'Database password')
     booleanParam(name: 'ROLLBACK_ONLY', defaultValue: false, description: 'Rollback Kubernetes deployments only')
   }
 
@@ -26,49 +24,44 @@ pipeline {
         expression { return !params.ROLLBACK_ONLY }
       }
       steps {
-        sh '''
+        withCredentials([
+          usernamePassword(credentialsId: 'prod-mysql-credentials', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASSWORD'),
+          usernamePassword(credentialsId: 'jfrog-creds', usernameVariable: 'JFROG_USER', passwordVariable: 'JFROG_PASSWORD')
+        ]) {
+          sh '''
+          set -eu
+          : "${IMAGE_TAG:?IMAGE_TAG is required}"
+          : "${MONOLITH_UPSTREAM:?MONOLITH_UPSTREAM is required}"
+          : "${DB_HOST:?DB_HOST is required}"
+          : "${JFROG_SERVER:?Set the Jenkins JFROG_SERVER environment variable}"
+          : "${JFROG_DOCKER_REPO:?Set the Jenkins JFROG_DOCKER_REPO environment variable}"
+          K8S_DIR=infra/kubernetes/prod
           NEW_MICROSERVICE_IMAGE="${MICROSERVICE_IMAGE_REPO}:${IMAGE_TAG}"
           NEW_FRONTEND_IMAGE="${FRONTEND_IMAGE_REPO}:${IMAGE_TAG}"
-          NEW_MONOLITH_IMAGE="${MONOLITH_IMAGE_REPO}:${IMAGE_TAG}"
 
-          # Substitute image placeholders
-          sed "s|__MICROSERVICE_IMAGE__|${NEW_MICROSERVICE_IMAGE}|g" k8s/microservice/deployment.yaml > k8s/microservice/deployment.rendered.yaml
-          sed "s|__FRONTEND_IMAGE__|${NEW_FRONTEND_IMAGE}|g" k8s/frontend/deployment.yaml > k8s/frontend/deployment.rendered.yaml
-          sed "s|__MONOLITH_IMAGE__|${NEW_MONOLITH_IMAGE}|g" k8s/monolith/deployment.yaml > k8s/monolith/deployment.rendered.yaml
-          
-          # Substitute database credentials in secrets
-          sed -e "s|__DB_HOST__|${DB_HOST}|g" -e "s|__DB_PORT__|${DB_PORT}|g" -e "s|__DB_NAME__|${DB_NAME}|g" -e "s|__DB_USER__|${DB_USER}|g" -e "s|__DB_PASSWORD__|${DB_PASSWORD}|g" k8s/secrets.yaml > k8s/secrets.rendered.yaml
+          sed "s|__MICROSERVICE_IMAGE__|${NEW_MICROSERVICE_IMAGE}|g" "$K8S_DIR/microservice-deployment.yaml" > "$K8S_DIR/microservice-deployment.rendered.yaml"
+          sed -e "s|__FRONTEND_IMAGE__|${NEW_FRONTEND_IMAGE}|g" -e "s|__MONOLITH_UPSTREAM__|${MONOLITH_UPSTREAM}|g" "$K8S_DIR/frontend-deployment.yaml" > "$K8S_DIR/frontend-deployment.rendered.yaml"
+          sed -e "s|__DB_HOST__|${DB_HOST}|g" -e "s|__DB_PORT__|${DB_PORT}|g" -e "s|__DB_NAME__|${DB_NAME}|g" -e "s|__DB_USER__|${DB_USER}|g" -e "s|__DB_PASSWORD__|${DB_PASSWORD}|g" "$K8S_DIR/microservice-secret.yaml" > "$K8S_DIR/microservice-secret.rendered.yaml"
 
-          kubectl create namespace ${APP_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-
-          # Apply namespace and configs
-          kubectl apply -f k8s/namespace.yaml
-          kubectl apply -f k8s/configmap.yaml
-          kubectl apply -f k8s/secrets.rendered.yaml
-          
-          # Apply database
-          kubectl apply -f k8s/postgres/pvc.yaml
-          kubectl apply -f k8s/postgres/deployment.yaml
-          
-          # Apply frontend
-          kubectl apply -f k8s/frontend/service.yaml
-          kubectl apply -f k8s/frontend/deployment.rendered.yaml
-          
-          # Apply monolith
-          kubectl apply -f k8s/monolith/service.yaml
-          kubectl apply -f k8s/monolith/deployment.rendered.yaml
-          
-          # Apply microservice
-          kubectl apply -f k8s/microservice/service.yaml
-          kubectl apply -f k8s/microservice/deployment.rendered.yaml
-          
-          # Apply ingress
-          kubectl apply -f k8s/ingress.yaml
+          kubectl apply -f "$K8S_DIR/namespace.yaml"
+          umask 077
+          DOCKER_CONFIG_FILE=$(mktemp)
+          trap 'rm -f "$DOCKER_CONFIG_FILE"' EXIT
+          DOCKER_AUTH=$(printf '%s' "${JFROG_USER}:${JFROG_PASSWORD}" | base64 | tr -d '\n')
+          printf '{"auths":{"%s":{"auth":"%s"}}}' "$JFROG_SERVER" "$DOCKER_AUTH" > "$DOCKER_CONFIG_FILE"
+          kubectl create secret generic jfrog-registry --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson="$DOCKER_CONFIG_FILE" -n "$APP_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -f "$K8S_DIR/microservice-configmap.yaml"
+          kubectl apply -f "$K8S_DIR/microservice-secret.rendered.yaml"
+          kubectl apply -f "$K8S_DIR/frontend-service.yaml"
+          kubectl apply -f "$K8S_DIR/frontend-deployment.rendered.yaml"
+          kubectl apply -f "$K8S_DIR/microservice-service.yaml"
+          kubectl apply -f "$K8S_DIR/microservice-deployment.rendered.yaml"
+          kubectl apply -f "$K8S_DIR/microservice-hpa.yaml"
 
           kubectl rollout status deployment/microservice -n ${APP_NAMESPACE}
           kubectl rollout status deployment/frontend -n ${APP_NAMESPACE}
-          kubectl rollout status deployment/monolith -n ${APP_NAMESPACE}
-        '''
+          '''
+        }
       }
     }
 
@@ -79,12 +72,11 @@ pipeline {
       steps {
         sh 'mkdir -p reports && kubectl get pods -n ${APP_NAMESPACE} | tee reports/prod-pods.txt'
         sh '''
-          kubectl port-forward -n ${APP_NAMESPACE} svc/monolith 18080:80 > prod-monolith-port-forward.log 2>&1 &
+          kubectl port-forward -n ${APP_NAMESPACE} svc/microservice 18081:80 > prod-microservice-port-forward.log 2>&1 &
           PF_PID=$!
           trap "kill ${PF_PID} >/dev/null 2>&1 || true" EXIT
           sleep 5
-          curl -fsS http://127.0.0.1:18080/monolith/health >/dev/null
-          curl -fsS http://127.0.0.1:18080/monolith/api/microservice-status | tee reports/prod-monolith-microservice-bridge.json
+          curl -fsS http://127.0.0.1:18081/microservice/actuator/health | tee reports/prod-microservice-health.json
         '''
       }
     }
@@ -97,7 +89,6 @@ pipeline {
         sh '''
           kubectl rollout undo deployment/microservice -n ${APP_NAMESPACE} || true
           kubectl rollout undo deployment/frontend -n ${APP_NAMESPACE} || true
-          kubectl rollout undo deployment/monolith -n ${APP_NAMESPACE} || true
         '''
       }
     }
@@ -105,7 +96,7 @@ pipeline {
 
   post {
     always {
-      sh 'rm -f k8s/**/*.rendered.yaml || true'
+      sh 'rm -f infra/kubernetes/prod/*.rendered.yaml || true'
       script {
         sh """
           mkdir -p reports
@@ -128,7 +119,7 @@ EOF
           <p><b>Pipeline:</b> ${env.JOB_NAME}</p>
           <p><b>Status:</b> ${currentBuild.currentResult}</p>
           <p><b>Image Tag:</b> ${params.IMAGE_TAG}</p>
-          <p><b>Namespace:</b> ${env.PROD_NAMESPACE}</p>
+          <p><b>Namespace:</b> ${env.APP_NAMESPACE}</p>
           <p><a href='${env.BUILD_URL}'>Open Build</a></p>
         """,
         attachmentsPattern: 'reports/**',

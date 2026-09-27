@@ -9,7 +9,7 @@ Environment-specific overrides:
 - `uat-monolith.yaml`
 - `prod-monolith.yaml`
 
-Use with `-f` in Helm deploy commands. The values files mainly vary by:
+These are optional Helm examples and are not consumed by the Jenkins deployment jobs. Replace the sample JFrog image host and build-number tag before use. The values files mainly vary by:
 
 - image tag and port
 - runtime config in `config.env`

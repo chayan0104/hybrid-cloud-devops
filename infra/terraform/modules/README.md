@@ -9,6 +9,6 @@ Location: `infra/terraform/modules/`
 - `alb`: ALB + target group + listener
 - `weblogic-ec2`: EC2 instance for monolith WebLogic runtime
 - `eks`: EKS cluster and node group
-- `rds`: PostgreSQL instance and subnet group
+- `rds`: MySQL instance and subnet group
 
 These modules are composed in `prod/main.tf` and `perf-prod/main.tf`.

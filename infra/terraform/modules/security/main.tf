@@ -1,6 +1,6 @@
 resource "aws_security_group" "alb" {
-  name   = "${var.name_prefix}-alb-sg"
-  vpc_id = var.vpc_id
+  name        = "${var.name_prefix}-alb-sg"
+  vpc_id      = var.vpc_id
   description = "Security group for the public application load balancer"
 
   #tfsec:ignore:aws-ec2-no-public-ingress-sgr Public HTTP/HTTPS ingress is required for the internet-facing ALB.
@@ -31,8 +31,8 @@ resource "aws_security_group" "alb" {
 }
 
 resource "aws_security_group" "weblogic" {
-  name   = "${var.name_prefix}-weblogic-sg"
-  vpc_id = var.vpc_id
+  name        = "${var.name_prefix}-weblogic-sg"
+  vpc_id      = var.vpc_id
   description = "Security group for the WebLogic application server"
 
   ingress {
@@ -53,22 +53,22 @@ resource "aws_security_group" "weblogic" {
 }
 
 resource "aws_security_group" "rds" {
-  name   = "${var.name_prefix}-rds-sg"
-  vpc_id = var.vpc_id
-  description = "Security group for the PostgreSQL database"
+  name        = "${var.name_prefix}-rds-sg"
+  vpc_id      = var.vpc_id
+  description = "Security group for the MySQL database"
 
   ingress {
-    description     = "Allow WebLogic to reach PostgreSQL"
-    from_port       = 5432
-    to_port         = 5432
+    description     = "Allow WebLogic to reach MySQL"
+    from_port       = 3306
+    to_port         = 3306
     protocol        = "tcp"
     security_groups = [aws_security_group.weblogic.id]
   }
 
   ingress {
-    description     = "Allow EKS workloads to reach PostgreSQL"
-    from_port       = 5432
-    to_port         = 5432
+    description     = "Allow EKS workloads to reach MySQL"
+    from_port       = 3306
+    to_port         = 3306
     protocol        = "tcp"
     security_groups = [aws_security_group.eks.id]
   }
@@ -83,8 +83,8 @@ resource "aws_security_group" "rds" {
 }
 
 resource "aws_security_group" "eks" {
-  name   = "${var.name_prefix}-eks-sg"
-  vpc_id = var.vpc_id
+  name        = "${var.name_prefix}-eks-sg"
+  vpc_id      = var.vpc_id
   description = "Security group for the private EKS control plane and nodes"
 
   #tfsec:ignore:aws-ec2-no-public-egress-sgr EKS nodes require outbound access for image pulls and managed service communication.

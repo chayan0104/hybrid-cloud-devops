@@ -2,8 +2,8 @@ import { bootstrapApplication } from "@angular/platform-browser";
 import { Component } from "@angular/core";
 
 const environment = {
-  monolithUrl: "http://localhost:9092",
-  microserviceUrl: "http://localhost:9093",
+  monolithPath: "/monolith",
+  microservicePath: "/microservice",
 };
 
 @Component({
@@ -15,8 +15,8 @@ const environment = {
         <h1>Chayan App</h1>
         <p>Frontend -> Monolith and Microservice with real MySQL-backed orders.</p>
         <div class="quick-links">
-          <a target="_blank" rel="noreferrer" href="http://localhost:9092/monolith/swagger">Monolith Swagger</a>
-          <a target="_blank" rel="noreferrer" href="http://localhost:9093/microservice/swagger-ui.html">Microservice Swagger</a>
+          <a target="_blank" rel="noreferrer" href="/monolith/swagger">Monolith Swagger</a>
+          <a target="_blank" rel="noreferrer" href="/microservice/swagger-ui.html">Microservice Swagger</a>
         </div>
       </section>
 
@@ -129,15 +129,15 @@ class AppComponent {
   }
 
   async loadCustomer() {
-    this.result = await this.fetchJson(`${environment.monolithUrl}/monolith/api/customer/${this.customerId}`);
+    this.result = await this.fetchJson(`${environment.monolithPath}/api/customer/${this.customerId}`);
   }
 
   async loadOrders() {
-    this.result = await this.fetchJson(`${environment.microserviceUrl}/microservice/api/orders/${this.customerId}`);
+    this.result = await this.fetchJson(`${environment.microservicePath}/api/orders/${this.customerId}`);
   }
 
   async loadSummary() {
-    this.result = await this.fetchJson(`${environment.monolithUrl}/monolith/api/customer-summary/${this.customerId}`);
+    this.result = await this.fetchJson(`${environment.monolithPath}/api/customer-summary/${this.customerId}`);
   }
 
   private async fetchJson(url: string): Promise<string> {

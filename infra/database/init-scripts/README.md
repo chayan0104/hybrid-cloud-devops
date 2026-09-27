@@ -2,7 +2,7 @@
 
 Location: `infra/database/init-scripts/`
 
-`01-init.sql` is executed by PostgreSQL container initialization in local compose.
+`01-init.sql` is executed by MySQL container initialization in local Compose and by the optional `infra/k8s/` lab after its init ConfigMap is created.
 
 It creates seed schema objects and inserts bootstrap data for application verification.
 

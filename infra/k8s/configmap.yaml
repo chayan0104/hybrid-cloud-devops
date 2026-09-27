@@ -27,3 +27,4 @@ data:
   APP_ENVIRONMENT: "prod"
   SERVICE_NAME: "monolith"
   LOG_LEVEL: "INFO"
+  MICROSERVICE_URL: "http://microservice:80/microservice"

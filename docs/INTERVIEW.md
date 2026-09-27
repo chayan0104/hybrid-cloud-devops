@@ -1,83 +1,52 @@
-# DevOps Interview Guide
+# DevOps Interview Preparation
 
-This guide is tailored for DevOps interviews based on this repository.
+## Project Summary
 
-## 1. Platform Summary
+This portfolio project demonstrates a hybrid delivery model for a small customer/orders application. Angular is served by Nginx, a Java WAR monolith owns customer endpoints, and a Spring Boot microservice owns order/status endpoints. MySQL is used locally and in the AWS Terraform model. Jenkins builds/scans images, publishes to JFrog, deploys UAT workloads to Kubernetes, and deploys the frontend/microservice to EKS in PROD.
 
-- UAT runtime:
-  - `monolith.war` on WebLogic Linux VM
-  - `frontend` and `microservice` on Kubernetes namespace `enterprise-uat`
-- PROD runtime:
-  - ALB -> EC2 WebLogic (`monolith.war`)
-  - `frontend` and `microservice` on EKS namespace `enterprise-prod`
-  - PostgreSQL on RDS
-- PERF-PROD runtime:
-  - Same topology as PROD for validation
+The production WebLogic WAR deployment remains manual, and the repository does not yet define a public EKS ingress for the frontend. Present these as known boundaries, not completed automation.
 
-## 2. DevOps QnA
+## Architecture Walkthrough
 
-1. How are secrets managed?
-   - Vault is the centralized source (`secret/shared`, `secret/uat`, `secret/prod`, `secret/perf-prod`).
+1. The browser requests the Angular UI.
+2. Angular calls same-origin `/monolith/...` or `/microservice/...` endpoints.
+3. Nginx proxies those paths to internal Kubernetes/Compose services; in PROD, `/monolith/` uses the configured WebLogic ALB URL.
+4. The monolith summary endpoint calls the microservice; the microservice queries MySQL.
 
-2. How are DB credentials injected into workloads?
-   - Jenkins renders per-app Kubernetes `Secret` manifests at deploy time and applies them to the target namespace.
+Local Compose is the runnable end-to-end environment. The Terraform model provisions a VPC, ALB, WebLogic EC2, EKS, and MySQL RDS, but no live AWS environment is included in the repository.
 
-3. How is deployment done for microservice?
-   - YAML-based image substitution (`__MICROSERVICE_IMAGE__`) and `kubectl apply`.
+## Questions and Evidence-Based Answers
 
-4. Which rollout strategies are supported in PROD?
-   - Rolling, Canary, Blue-Green.
+**How are images versioned and promoted?**
+CI tags images with the Jenkins build number and pushes them to a configured JFrog Docker repository. UAT/PROD jobs receive the tag as `IMAGE_TAG`; do not deploy `latest`.
 
-5. How is rollback handled?
-   - Pipelines capture previous image and re-apply deployment YAML with old image.
+**How are secrets handled?**
+Database and JFrog credentials are bound from Jenkins credentials. The deployment jobs render Kubernetes Secret manifests temporarily. Vault policies and setup files are present, but the pipelines do not retrieve secrets from Vault yet.
 
-6. How are artifacts published?
-   - Docker images and WAR files are published to JFrog from CI.
+**How does production deployment work?**
+The PROD pipeline deploys frontend and microservice workloads to `enterprise-prod`, waits for rollouts, and probes the microservice actuator health endpoint. The WebLogic WAR is archived by CI and deployed separately using the SSH helper; that stage is not automated.
 
-7. How is quality/security validated in CI?
-   - Maven build/test + Trivy image and filesystem scans.
+**How does rollback work?**
+The deployment jobs expose a rollback-only path that asks Kubernetes to undo frontend and microservice deployments (and UAT monolith). This is Kubernetes revision rollback, not a complete database or WebLogic rollback strategy.
 
-8. How are notifications handled?
-   - `emailext` in CI/UAT/PROD with reports and build logs.
+**How is persistence configured?**
+The services use MySQL JDBC. Local Compose initializes schema/data from `infra/database/init-scripts/`; Terraform provisions private MySQL RDS and the `app_db` database. Terraform state must be secured because it contains the DB password.
 
-9. What is the Terraform model?
-   - Reusable modules: `network`, `security`, `alb`, `weblogic-ec2`, `eks`, `rds`.
+**What do the security scans enforce?**
+CI runs SonarQube, dependency, IaC, secret, and Trivy scans. Several commands are report-only and do not fail the build, so the current pipeline does not guarantee a clean security gate.
 
-10. Which files define setup and architecture?
-    - `../README.md`, `ARCHITECTURE.md`, `SETUP-AND-DEPLOYMENT-GUIDE.md`, `../infra/INFRASTRUCTURE.md`.
+**What remains before calling this production-ready?**
+Configure a public frontend ingress and routing, secure remote Terraform state, move DB secret delivery to an approved secret manager, automate/test WebLogic deployment, make scan thresholds blocking, and validate recovery/backup procedures in a live environment.
 
-11. How do app components communicate locally?
-    - Shared Docker network `enterprise_app_net` connects frontend, main app, microservice, and PostgreSQL.
+## Troubleshooting Story
 
-12. Is there a DB interaction example?
-    - Yes. `../infra/database/init-scripts/01-init.sql` seeds `customers`; endpoint `GET /api/customers` reads it.
+A useful example is tracing why a deployed UI would fail even while its backend pods were healthy: browser code used `localhost` URLs, which point to the end user's own machine. Replacing them with same-origin API paths and adding Nginx reverse-proxy routes makes Compose and Kubernetes service DNS usable without browser-side environment-specific hostnames.
 
-## 3. Hands-On Tasks
+Another example is reconciling database drift: JDBC and seed SQL were MySQL-specific while Kubernetes/Terraform declared PostgreSQL. The application path and AWS RDS settings now agree on MySQL; the separate lab bundle and cloud deployment still require full environment validation.
 
-1. Add a new Vault secret and expose it to microservice in UAT.
-2. Rotate PostgreSQL password in Vault and redeploy without code changes.
-3. Execute canary release in PROD and promote only after health validation.
-4. Trigger rollback by deploying a bad image and restore previous image via YAML.
-5. Add a Prometheus alert for high error rate and verify Alertmanager routing.
-6. Provision PERF-PROD with Terraform and validate outputs.
+## Interview Guardrails
 
-## 4. Evaluation Rubric
-
-- Deployment safety:
-  - Candidate understands promotion/rollback conditions.
-- Secrets discipline:
-  - No credentials in repo, all sensitive values from Vault.
-- IaC maturity:
-  - Correct use of Terraform modules and environment inputs.
-- Observability thinking:
-  - Candidate can define actionable metrics and alerts.
-- Incident response:
-  - Candidate demonstrates fast rollback and clear validation checks.
-
-## 5. Rapid Review Checklist
-
-- Knows where Jenkins pipelines are (`../infra/jenkins/`)
-- Knows where Kubernetes manifests are (`../k8s/`)
-- Knows where Terraform environments are (`../infra/terraform/prod`, `../infra/terraform/perf-prod`)
-- Knows where Vault setup is (`../infra/vault/`)
-- Knows where setup/architecture docs are (`../README.md`, `ARCHITECTURE.md`, `SETUP-AND-DEPLOYMENT-GUIDE.md`)
+- State what runs locally versus what is only declared as infrastructure.
+- Do not claim live deployment, measured availability, cost savings, or security compliance without evidence.
+- Explain why immutable tags, controlled secrets, remote state, health gates, and rollback boundaries matter.
+- Describe the remaining manual WebLogic path and absent public EKS ingress candidly.

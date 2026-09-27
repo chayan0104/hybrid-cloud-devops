@@ -69,12 +69,12 @@ spec:
             summary: "Monolith has fewer than 2 replicas"
             description: "Only {{ $value }} monolith replicas available"
 
-        - alert: PostgresReplicaDown
-          expr: kube_deployment_status_replicas_available{deployment="postgres"} < 1
+        - alert: MysqlReplicaDown
+          expr: kube_deployment_status_replicas_available{deployment="mysql"} < 1
           for: 2m
           annotations:
-            summary: "PostgreSQL is down"
-            description: "PostgreSQL replica count is 0"
+            summary: "MySQL is down"
+            description: "MySQL replica count is 0"
 
         - alert: HighMemoryUsage
           expr: (container_memory_usage_bytes{namespace="enterprise-app"} / container_spec_memory_limit_bytes) > 0.9

@@ -1,169 +1,133 @@
 # Setup and Deployment Guide
 
-This guide covers Local Development, UAT deployment, and PROD deployment for the hybrid model:
+This guide explains how the repository is structured and how the current implementation is expected to run across local, UAT, and production-style environments.
 
-- Frontend app: Angular + Nginx container
-- Main app: Java WAR on WebLogic
-- Microservice: Spring Boot on Kubernetes
-- Infra: Terraform on AWS
-- Secrets: Vault
-- CI/CD: Jenkins
-- Database: PostgreSQL
+> Cloud deployment requires AWS, Jenkins, JFrog, MySQL, and Kubernetes configuration that is intentionally not stored in this repository.
 
-## 1. Local Development
+## Quick navigation
 
-```bash
-cp applications/.env.example applications/.env
-cd applications
+- [Local development](#local-development)
+- [UAT deployment](#uat-deployment)
+- [Production-style deployment](#production-style-deployment)
+- [Terraform and state handling](#terraform-and-state-handling)
+- [CI notes](#ci-notes)
+
+## Local development
+
+### Prerequisites
+
+- Docker Desktop or Docker Engine
+- Docker Compose enabled
+
+### Start the stack
+
+```powershell
+Set-Location applications
+Copy-Item .env.example .env
 docker compose up -d --build
 ```
 
-If you also plan to run the full local CI/UAT toolchain on the same machine with WSL2, Docker Desktop, Jenkins, SonarQube, PostgreSQL, registry, VS Code, and Chrome:
+### Validate the services
 
-- Plan for 11-14 GB total RAM usage
-- Keep 2-3 GB RAM headroom available
-- 16 GB RAM is the recommended baseline
-
-Detailed sizing is documented in `UAT-LOCAL-REPLICATION-WSL.md`.
-
-Verify:
-
-```bash
-curl http://localhost:9093/microservice/api/status
-curl http://localhost:9093/microservice/api/orders/1
-curl http://localhost:9092/monolith/api/customer/1
-curl http://localhost:9092/monolith/api/customer-summary/1
-curl http://localhost:9091/
-
-# Swagger
-open http://localhost:9092/monolith/swagger
-open http://localhost:9093/microservice/swagger-ui.html
+```powershell
+curl.exe -fsS http://localhost:9091/
+curl.exe -fsS http://localhost:9092/monolith/health
+curl.exe -fsS http://localhost:9093/microservice/actuator/health
+curl.exe -fsS http://localhost:9093/microservice/api/status
+curl.exe -fsS http://localhost:9092/monolith/api/customer-summary/1
 ```
 
-## 2. UAT Deployment
+The frontend uses same-origin paths such as `/monolith` and `/microservice`. Nginx handles the proxy routing and keeps the browser from directly depending on raw backend hostnames.
 
-Deploy all components (Kubernetes manifests consolidation):
+### Useful local commands
 
-```bash
-# Apply entire Kubernetes stack (namespace, configs, postgres, frontend, monolith, microservice, ingress)
-kubectl apply -f k8s/
-
-# Wait for deployments to be ready
-kubectl rollout status deployment/microservice -n enterprise-app
-kubectl rollout status deployment/frontend -n enterprise-app
-kubectl rollout status deployment/monolith -n enterprise-app
-kubectl rollout status deployment/postgres -n enterprise-app
+```powershell
+docker compose logs -f
+docker compose down
 ```
 
-With image substitution (via Jenkins):
+> The `.env` file is optional for local defaults, and the embedded credentials are intended only for development use.
 
-```bash
-# Substitute real image URIs before applying
-sed "s|__MICROSERVICE_IMAGE__|your-registry.io/microservice:uat-v1|g" \
-  k8s/microservice/deployment.yaml | kubectl apply -f -
-sed "s|__FRONTEND_IMAGE__|your-registry.io/frontend-angular:uat-v1|g" \
-  k8s/frontend/deployment.yaml | kubectl apply -f -
-sed "s|__MONOLITH_IMAGE__|your-registry.io/monolith:uat-v1|g" \
-  k8s/monolith/deployment.yaml | kubectl apply -f -
-```
+## UAT deployment
 
-Port forwarding for testing:
+The pipeline in `infra/jenkins/Jenkinsfile-UAT` deploys the frontend, monolith, and microservice to the `enterprise-uat` namespace. Before running it, make sure the Kubernetes context and required Jenkins credentials are configured.
 
-```bash
-kubectl port-forward -n enterprise-app svc/frontend 8080:80
-kubectl port-forward -n enterprise-app svc/monolith 8082:80
-kubectl port-forward -n enterprise-app svc/microservice 8081:80
-```
+### Required values
 
-Helm option for microservice (legacy, optional):
+- `IMAGE_TAG`: a unique CI build tag, typically the Jenkins build number
+- `DB_HOST`, `DB_PORT` (`3306`), and `DB_NAME` (`app_db`)
+- Jenkins credentials: `uat-mysql-credentials` and `jfrog-creds`
+- Global Jenkins env values: `JFROG_SERVER` and `JFROG_DOCKER_REPO`
 
-```bash
-helm upgrade --install microservice-uat infra/helm/charts/microservice \
-  -f infra/helm/values/uat-microservice.yaml \
-  --namespace enterprise-app --create-namespace
-```
+The job renders temporary Kubernetes Secret files, applies the manifests from `infra/kubernetes/uat/`, waits for rollouts, and validates the app endpoints. Vault fetching is not part of the current pipeline.
 
-## 3. PROD Deployment
+## Production-style deployment
 
-Provision AWS:
+The AWS stack should only be provisioned after reviewing cost, IAM permissions, data protection, and state security. The repository currently does not define a production-grade remote Terraform backend.
 
-```bash
-cd infra/terraform/prod
+### Terraform validation pattern
+
+```powershell
+Set-Location infra/terraform/prod
+Copy-Item terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with approved account-specific values; never commit it.
 terraform init
+terraform validate
 terraform plan -var-file=terraform.tfvars
-terraform apply -var-file=terraform.tfvars
 ```
 
-## 4. PERF-PROD Deployment
+The Terraform configuration creates a private MySQL instance and database named `app_db`.
+
+### Jenkins production flow
+
+`infra/jenkins/Jenkinsfile-PROD` deploys the frontend and microservice manifests from `infra/kubernetes/prod/` to EKS. Required inputs include:
+
+- `IMAGE_TAG` from CI
+- `MONOLITH_UPSTREAM`: the WebLogic URL used by Nginx as the monolith origin
+- `DB_HOST`, `DB_PORT` (`3306`), and `DB_NAME` (`app_db`)
+- Jenkins credentials: `prod-mysql-credentials` and `jfrog-creds`
+- Global environment values: `JFROG_SERVER` and `JFROG_DOCKER_REPO`
+
+The pipeline waits for rollout success and probes `/microservice/actuator/health`. It does not automatically deploy the WAR to WebLogic.
+
+### Manual WebLogic deployment path
+
+CI archives the WAR artifact, and the separate script below is the existing deployment helper:
 
 ```bash
-cd infra/terraform/perf-prod
-terraform init
-terraform plan -var-file=terraform.tfvars
-terraform apply -var-file=terraform.tfvars
+infra/scripts/deploy-war.sh applications/monolith/target/monolith.war user@weblogic-host /path/to/domain/autodeploy
 ```
 
-Deploy PROD workloads:
+This process assumes SSH access and a compatible WebLogic service setup. Use it only after verifying the target server, deployment path, and operational procedure.
 
-```bash
-# Apply entire Kubernetes stack
-kubectl apply -f k8s/
+## Terraform and state handling
 
-# Wait for rollouts
-kubectl rollout status deployment/microservice -n enterprise-app
-kubectl rollout status deployment/frontend -n enterprise-app
-kubectl rollout status deployment/monolith -n enterprise-app
-```
+### Environment manifests
 
-With image substitution (via Jenkins):
+`infra/k8s/` is a separate, single-namespace reference stack and is not the active UAT or PROD pipeline path. For real environment deployment, use the manifests under:
 
-```bash
-# Substitute and deploy microservice
-sed "s|__MICROSERVICE_IMAGE__|your-registry.io/microservice:prod-v1|g" \
-  k8s/microservice/deployment.yaml | kubectl apply -f -
+- `infra/kubernetes/uat/`
+- `infra/kubernetes/prod/`
 
-# Deploy frontend  
-sed "s|__FRONTEND_IMAGE__|your-registry.io/frontend-angular:prod-v1|g" \
-  k8s/frontend/deployment.yaml | kubectl apply -f -
+### State security
 
-# Deploy monolith
-sed "s|__MONOLITH_IMAGE__|your-registry.io/monolith:prod-v1|g" \
-  k8s/monolith/deployment.yaml | kubectl apply -f -
-```
+The AWS and database layers are intentionally designed to show platform patterns, but they still require production hardening:
 
-Helm option for microservice (legacy, optional):
+- encrypt Terraform state
+- control remote state access carefully
+- keep database credentials out of source control
+- apply real IAM boundaries before reuse outside a lab context
 
-```bash
-helm upgrade --install microservice-prod infra/helm/charts/microservice \
-  -f infra/helm/values/prod-microservice.yaml \
-  --namespace enterprise-app --create-namespace
-```
+## CI notes
 
-## 5. CI/CD Pipelines
+The CI process builds:
 
-- `../infra/jenkins/Jenkinsfile-CI`
-- `../infra/jenkins/Jenkinsfile-UAT`
-- `../infra/jenkins/Jenkinsfile-PROD`
+- Angular bundle
+- monolith WAR or container image
+- Spring Boot microservice image
 
-Features:
+The images are tagged using the Jenkins build number and pushed to JFrog Artifactory. The WAR artifact is archived in Jenkins rather than being published to a generic repository. Some security scan steps currently report findings without failing the build.
 
-- CI builds all apps, runs Dockerized Trivy scans, pushes to JFrog
-- UAT deploys monolith WAR to WebLogic and deploys frontend + microservice via Kubernetes YAML image substitution
-- PROD deploys monolith WAR to EC2 WebLogic and deploys frontend + microservice to EKS via Kubernetes YAML image substitution
-- All pipelines generate `reports/**`, archive them, and send email notifications via `emailext`
+## Final note
 
-Jenkins plugin requirement:
-
-- Email Extension Plugin (`emailext`)
-
-## 6. Monitoring
-
-- Prometheus/Grafana/Alertmanager: `../infra/monitoring/prometheus-grafana-alertmanager`
-- New Relic: `../infra/monitoring/newrelic/setup.md`
-
-## 7. Documentation
-
-- Infra master guide: `../infra/INFRASTRUCTURE.md`
-- Infra navigation: `../infra/setup.md`
-- Vault setup: `../infra/vault/VAULT_SETUP.md`
-- Local UAT replication on WSL2: `UAT-LOCAL-REPLICATION-WSL.md`
+This repository demonstrates solid DevOps thinking across build, deploy, cloud infrastructure, and environment operations. It is best positioned as a professional portfolio project and a realistic reference implementation rather than a production-certified deployment system.

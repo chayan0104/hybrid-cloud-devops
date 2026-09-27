@@ -23,17 +23,3 @@ spec:
                 name: frontend
                 port:
                   number: 80
-          - path: /monolith
-            pathType: Prefix
-            backend:
-              service:
-                name: monolith
-                port:
-                  number: 80
-          - path: /microservice
-            pathType: Prefix
-            backend:
-              service:
-                name: microservice
-                port:
-                  number: 80

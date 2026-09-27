@@ -40,14 +40,103 @@ metadata:
   name: allow-from-ingress
   namespace: enterprise-app
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      app: frontend
   policyTypes:
     - Ingress
   ingress:
     - from:
         - namespaceSelector:
             matchLabels:
-              name: ingress-nginx
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-to-monolith
+  namespace: enterprise-app
+spec:
+  podSelector:
+    matchLabels:
+      app: monolith
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: frontend
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-to-microservice
+  namespace: enterprise-app
+spec:
+  podSelector:
+    matchLabels:
+      app: microservice
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: frontend
+      ports:
+        - protocol: TCP
+          port: 8081
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monolith-to-microservice
+  namespace: enterprise-app
+spec:
+  podSelector:
+    matchLabels:
+      app: microservice
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: monolith
+      ports:
+        - protocol: TCP
+          port: 8081
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-apps-to-mysql
+  namespace: enterprise-app
+spec:
+  podSelector:
+    matchLabels:
+      app: mysql
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - monolith
+                  - microservice
+      ports:
+        - protocol: TCP
+          port: 3306
 ---
 # Service Account for apps
 apiVersion: v1

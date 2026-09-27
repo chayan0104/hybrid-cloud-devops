@@ -54,7 +54,7 @@ spec:
                     - key: app
                       operator: In
                       values:
-                        - postgres
+                        - mysql
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: monolith

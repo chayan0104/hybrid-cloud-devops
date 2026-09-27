@@ -6,6 +6,9 @@ services:
     restart: unless-stopped
     ports:
       - "9091:8080"
+    environment:
+      MONOLITH_UPSTREAM: http://monolith:8080
+      MICROSERVICE_UPSTREAM: http://microservice:8081
     depends_on:
       - monolith
     networks:
@@ -76,6 +79,7 @@ services:
       retries: 5
       start_period: 60s
     networks:
+      - frontend-net
       - backend-net
     logging:
       driver: json-file

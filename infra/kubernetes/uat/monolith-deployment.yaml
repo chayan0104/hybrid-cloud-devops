@@ -19,6 +19,8 @@ spec:
       labels:
         app: monolith
     spec:
+      imagePullSecrets:
+        - name: jfrog-registry
       terminationGracePeriodSeconds: 30
       containers:
         - name: monolith

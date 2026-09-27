@@ -4,8 +4,8 @@ fullnameOverride: microservice
 replicaCount: 2
 
 image:
-  repository: mechayan97/microservice
-  tag: uat-latest
+  repository: registry.example.com/docker-local/microservice
+  tag: replace-with-ci-build-number
 
 config:
   env:
@@ -17,21 +17,21 @@ secretProvider:
   data:
     - secretKey: DB_HOST
       remoteRef:
-        key: secret/data/uat/app
+        key: secret/data/uat/db
         property: db_host
     - secretKey: DB_PORT
       remoteRef:
-        key: secret/data/uat/app
+        key: secret/data/uat/db
         property: db_port
     - secretKey: DB_NAME
       remoteRef:
-        key: secret/data/uat/app
+        key: secret/data/uat/db
         property: db_name
     - secretKey: DB_USER
       remoteRef:
-        key: secret/data/uat/app
+        key: secret/data/uat/db
         property: db_user
     - secretKey: DB_PASSWORD
       remoteRef:
-        key: secret/data/uat/app
+        key: secret/data/uat/db
         property: db_password

@@ -1,10 +1,11 @@
 # Module: rds
 
-Creates PostgreSQL database resources:
+Creates the private MySQL database used by the application:
 
 - DB subnet group
-- RDS instance (PostgreSQL)
+- RDS MySQL instance with the `app_db` database
+- Application username and password supplied by the environment stack
 
-Connected through security group rules defined in `modules/security`.
+The MySQL port is restricted to the WebLogic and EKS security groups defined in `modules/security`.
 
 Output: database endpoint.

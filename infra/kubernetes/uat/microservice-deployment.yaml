@@ -21,6 +21,8 @@ spec:
         app: microservice
         track: stable
     spec:
+      imagePullSecrets:
+        - name: jfrog-registry
       terminationGracePeriodSeconds: 30
       containers:
         - name: microservice

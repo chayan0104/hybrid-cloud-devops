@@ -1,10 +1,10 @@
-# Helm Charts - Recommended Deployment Path
+# Helm Charts - Optional Deployment Path
 
 Location: `infra/helm/`
 
 ## What changed
 
-The chart is now the primary deployment path for backend workloads. It renders:
+The chart is an optional alternative deployment example. The current Jenkins UAT/PROD jobs use environment-specific Kubernetes YAML instead. It renders:
 
 - `ConfigMap` for non-secret runtime configuration
 - `ExternalSecret` for Vault-backed secret sync
@@ -14,7 +14,7 @@ The chart is now the primary deployment path for backend workloads. It renders:
 - `PodDisruptionBudget`
 - `ServiceAccount`
 
-This keeps the deployment model small while staying production-friendly.
+The chart requires External Secrets Operator and a Vault `ClusterSecretStore`; it is not invoked by the current Jenkins jobs.
 
 ## Structure
 
@@ -35,22 +35,16 @@ helm upgrade --install microservice infra/helm/charts/microservice \
   -f infra/helm/values/uat-microservice.yaml \
   --namespace enterprise-uat --create-namespace
 
-helm upgrade --install monolith infra/helm/charts/microservice \
-  -f infra/helm/values/uat-monolith.yaml \
-  --namespace enterprise-uat --create-namespace
-
 helm upgrade --install microservice infra/helm/charts/microservice \
   -f infra/helm/values/prod-microservice.yaml \
   --namespace enterprise-prod --create-namespace
-
-helm upgrade --install monolith infra/helm/charts/microservice \
-  -f infra/helm/values/prod-monolith.yaml \
-  --namespace enterprise-prod --create-namespace
 ```
+
+Monolith values remain for the optional UAT Kubernetes lab. Do not use the PROD monolith values for the selected hybrid design; PROD keeps the WAR on WebLogic/EC2.
 
 ## Secrets model
 
-Secrets are no longer described inline in the deployment template. Each release maps Vault properties to the exact environment variables the apps already consume:
+Configure each sample image repository/tag for the JFrog instance before installing. The optional chart maps Vault properties to the exact environment variables the apps consume:
 
 - `DB_HOST`
 - `DB_PORT`

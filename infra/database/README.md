@@ -1,10 +1,10 @@
-# Database Setup (PostgreSQL)
+# Database Setup (MySQL)
 
 Location: `infra/database/`
 
 ## Purpose
 
-Database bootstrap assets for local/UAT-like environments and schema reference.
+MySQL bootstrap assets for local/UAT-like environments and schema reference.
 
 ## Init Scripts
 
@@ -22,7 +22,7 @@ The scripts create:
 
 ## Local Compose Integration
 
-`applications/docker-compose.yml` mounts `infra/database/init-scripts` into Postgres init directory.
+`applications/docker-compose.yml` mounts `infra/database/init-scripts` into the MySQL container's init directory.
 
 ## Validation
 

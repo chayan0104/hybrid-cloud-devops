@@ -9,11 +9,11 @@ Location: `infra/terraform/prod/`
 - ALB
 - EC2 WebLogic monolith tier
 - EKS frontend + microservice tier
-- RDS PostgreSQL
+- RDS MySQL with the `app_db` database
 
 ## Inputs
 
-Use `terraform.tfvars` (from `terraform.tfvars.example`) for environment values.
+Use `terraform.tfvars` (from `terraform.tfvars.example`) for environment values. It contains a sensitive DB password; do not commit the copied file. The current stack has no remote backend, so protect the local state file.
 
 ## Commands
 

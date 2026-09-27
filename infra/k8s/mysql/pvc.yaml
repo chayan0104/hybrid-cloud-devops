@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: postgres-pvc
+  name: mysql-pvc
   namespace: enterprise-app
 spec:
   accessModes:

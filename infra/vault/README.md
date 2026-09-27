@@ -4,7 +4,7 @@ Location: `infra/vault/`
 
 ## Files
 
-- `vault-policies.hcl`: Jenkins read policy for shared and environment secret paths
+- `vault-policies.hcl`: read policy examples for shared and environment secret paths
 - `vault-secrets-setup.sh`: seed shared/uat/prod/perf-prod secrets
 - `VAULT_SETUP.md`: end-to-end setup flow
 
@@ -15,4 +15,4 @@ Location: `infra/vault/`
 - `secret/prod/*`: app/db settings
 - `secret/perf-prod/*`: app/db settings
 
-Pipelines read these at runtime and do not hardcode secrets.
+The Jenkins pipelines currently use Jenkins credential bindings and do not read these Vault paths. Treat the scripts and policy as optional integration examples until Vault authentication and retrieval are wired into and tested by the jobs.

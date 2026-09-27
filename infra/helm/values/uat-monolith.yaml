@@ -4,8 +4,8 @@ fullnameOverride: monolith
 replicaCount: 2
 
 image:
-  repository: mechayan97/main-app
-  tag: uat-latest
+  repository: registry.example.com/docker-local/monolith
+  tag: replace-with-ci-build-number
   pullPolicy: IfNotPresent
 
 service:
@@ -25,23 +25,23 @@ secretProvider:
   data:
     - secretKey: DB_HOST
       remoteRef:
-        key: secret/data/uat/app
+        key: secret/data/uat/db
         property: db_host
     - secretKey: DB_PORT
       remoteRef:
-        key: secret/data/uat/app
+        key: secret/data/uat/db
         property: db_port
     - secretKey: DB_NAME
       remoteRef:
-        key: secret/data/uat/app
+        key: secret/data/uat/db
         property: db_name
     - secretKey: DB_USER
       remoteRef:
-        key: secret/data/uat/app
+        key: secret/data/uat/db
         property: db_user
     - secretKey: DB_PASSWORD
       remoteRef:
-        key: secret/data/uat/app
+        key: secret/data/uat/db
         property: db_password
 
 probes:
